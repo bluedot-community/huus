@@ -1,0 +1,12 @@
+[workspace]
+
+members = [
+        "huus",
+        "huus_macros",
+    ]
+
+[patch.crates-io]
+
+huus = { path = 'huus' }
+huus_macros = { path = 'huus_macros' }
+

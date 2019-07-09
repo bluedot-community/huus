@@ -1,0 +1,15 @@
+[package]
+name = "huus"
+version = "0.1.0"
+authors = ["Wojciech Kluczka <wojciech.kluczka@gmail.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+bson = "0.11"
+mongo_driver = "0.12"
+chrono = "0.4"
+
+[dev-dependencies]
+maplit = "1.0"
+
