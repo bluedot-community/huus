@@ -542,12 +542,48 @@ fn test_find_one_query() {
             }),
             string: "def".into(),
         };
+        let command = huus::commands::FindOneCommand::new(
+            "abc_collection".to_string(),
+            doc! { "data.int": 1, "data.str": "abc", "string": "def" },
+        );
+        assert_eq!(filter.find_one(), command);
+    }
+
+    {
+        let filter = Doc2Filter {
+            data: huus::filters::ObjectEntry::Value(Doc1Data {
+                integer: 1.into(),
+                string: "abc".into(),
+            }),
+            string: "def".into(),
+        };
+        let command = huus::commands::FindOneCommand::new(
+            "abc_collection".to_string(),
+            doc! { "data": { "int": 1, "str": "abc" }, "string": "def" },
+        );
+        assert_eq!(filter.find_one(), command);
+    }
+}
+
+#[test]
+fn test_find_many_query() {
+    use bson::{bson, doc};
+    use huus::query::Query;
+
+    {
+        let filter = Doc2Filter {
+            data: huus::filters::ObjectEntry::Dot(Doc1Filter {
+                integer: 1.into(),
+                string: "abc".into(),
+            }),
+            string: "def".into(),
+        };
         let command = huus::commands::FindCommand::new(
             "abc_collection".to_string(),
             doc! { "data.int": 1, "data.str": "abc", "string": "def" },
-            Some(1),
+            None,
         );
-        assert_eq!(filter.find_one(), command);
+        assert_eq!(filter.find(), command);
     }
 
     {
@@ -561,9 +597,9 @@ fn test_find_one_query() {
         let command = huus::commands::FindCommand::new(
             "abc_collection".to_string(),
             doc! { "data": { "int": 1, "str": "abc" }, "string": "def" },
-            Some(1),
+            None,
         );
-        assert_eq!(filter.find_one(), command);
+        assert_eq!(filter.find(), command);
     }
 }
 

@@ -113,6 +113,49 @@ impl CreateIndexesCommand {
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Debug, PartialEq)]
+pub struct FindOneCommand<Data>
+where
+    Data: FromDoc,
+{
+    pub(crate) collection_name: String,
+    pub(crate) filter: bson::Document,
+    pub(crate) phantom: PhantomData<Data>,
+}
+
+impl<Data> FindOneCommand<Data>
+where
+    Data: FromDoc,
+{
+    pub fn new(collection_name: String, filter: bson::Document) -> Self {
+        Self { collection_name, filter, phantom: PhantomData }
+    }
+
+    pub fn get_filter(&self) -> &bson::Document {
+        &self.filter
+    }
+
+    pub fn execute(
+        &self,
+        db: &mongo_driver::database::Database,
+    ) -> Result<Option<Data>, HuusError> {
+        let collection = db.get_collection(self.collection_name.as_bytes());
+        let filter = self.get_filter();
+        let options = self.get_options();
+        let response = collection.find(&filter, options.as_ref())?;
+        for entry in response {
+            return Ok(Some(Data::from_doc(entry?)?));
+        }
+        Ok(None)
+    }
+
+    fn get_options(&self) -> Option<mongo_driver::CommandAndFindOptions> {
+        Some(options::find(1))
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+#[derive(Debug, PartialEq)]
 pub struct FindCommand<Data>
 where
     Data: FromDoc,

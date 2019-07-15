@@ -53,14 +53,13 @@ pub trait Query: Sized {
         }
     }
 
-    fn find_one(self) -> commands::FindCommand<Self::Data>
+    fn find_one(self) -> commands::FindOneCommand<Self::Data>
     where
         Self: filters::BuildFilter,
     {
-        commands::FindCommand {
+        commands::FindOneCommand {
             collection_name: Self::get_collection_name().to_string(),
             filter: self.build_filter().into_doc(),
-            limit: Some(1),
             phantom: PhantomData,
         }
     }
