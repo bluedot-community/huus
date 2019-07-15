@@ -273,3 +273,14 @@ fn test_i64_entry_filter() {
     let expected = doc! { KEY: { "$exists": true } };
     assert_eq!(entry.build_filter(KEY.to_string()).into_doc(), expected);
 }
+
+#[test]
+fn test_bson_entry_filter() {
+    let entry = BsonEntry::Value(doc! { "a": 1, "b": 2 });
+    let expected = doc! { KEY: { "a": 1, "b": 2 } };
+    assert_eq!(entry.build_filter(KEY.to_string()).into_doc(), expected);
+
+    let entry = BsonEntry::Element(Element::Exists(true));
+    let expected = doc! { KEY: { "$exists": true } };
+    assert_eq!(entry.build_filter(KEY.to_string()).into_doc(), expected);
+}

@@ -113,7 +113,7 @@ fn test_array_update() {
 }
 
 #[test]
-fn test_double_entry_update() {
+fn test_f64_entry_update() {
     let entry = F64Entry::Value(3.14);
     let expected = doc! { KEY: 3.14 };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
@@ -241,5 +241,16 @@ fn test_i64_entry_update() {
 
     let entry = I64Entry::Field(Field::Set(3));
     let expected = doc! { "$set": { KEY: 3i64 } };
+    assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
+}
+
+#[test]
+fn test_bson_entry_update() {
+    let entry = BsonEntry::Value(doc! { "a": 1, "b": 2 });
+    let expected = doc! { KEY: { "a": 1, "b": 2 } };
+    assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
+
+    let entry = BsonEntry::Field(Field::Set(doc! { "a": 1, "b": 2 }));
+    let expected = doc! { "$set": { KEY: { "a": 1, "b": 2 } } };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 }

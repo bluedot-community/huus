@@ -28,6 +28,7 @@ impl PredefinedType {
             BuiltInType::Date => quote::quote_spanned!(span=> huus::types::Date),
             BuiltInType::I32 => quote::quote_spanned!(span=> i32),
             BuiltInType::I64 => quote::quote_spanned!(span=> i64),
+            BuiltInType::Bson => quote::quote_spanned!(span=> bson::Document),
         };
         output.into()
     }
@@ -42,6 +43,7 @@ impl PredefinedType {
             BuiltInType::Date => quote::quote_spanned!(span=> huus::filters::DateEntry),
             BuiltInType::I32 => quote::quote_spanned!(span=> huus::filters::I32Entry),
             BuiltInType::I64 => quote::quote_spanned!(span=> huus::filters::I64Entry),
+            BuiltInType::Bson => quote::quote_spanned!(span=> huus::filters::BsonEntry),
         };
         output.into()
     }
@@ -56,6 +58,7 @@ impl PredefinedType {
             BuiltInType::Date => quote::quote_spanned!(span=> huus::types::Date),
             BuiltInType::I32 => quote::quote_spanned!(span=> i32),
             BuiltInType::I64 => quote::quote_spanned!(span=> i64),
+            BuiltInType::Bson => quote::quote_spanned!(span=> bson::Document),
         };
         output.into()
     }
@@ -70,6 +73,7 @@ impl PredefinedType {
             BuiltInType::Date => quote::quote_spanned!(span=> huus::updates::DateEntry),
             BuiltInType::I32 => quote::quote_spanned!(span=> huus::updates::I32Entry),
             BuiltInType::I64 => quote::quote_spanned!(span=> huus::updates::I64Entry),
+            BuiltInType::Bson => quote::quote_spanned!(span=> huus::updates::BsonEntry),
         };
         output.into()
     }
@@ -83,6 +87,7 @@ impl PredefinedType {
             BuiltInType::Date => quote::quote! { get_utc_datetime },
             BuiltInType::I32 => quote::quote! { get_i32 },
             BuiltInType::I64 => quote::quote! { get_i64 },
+            BuiltInType::Bson => quote::quote! { get_document },
         };
         output.into()
     }
@@ -96,6 +101,7 @@ impl PredefinedType {
             BuiltInType::Date => quote::quote! { value.clone() },
             BuiltInType::I32 => quote::quote! { value },
             BuiltInType::I64 => quote::quote! { value },
+            BuiltInType::Bson => quote::quote! { value.clone() },
         };
         output.into()
     }

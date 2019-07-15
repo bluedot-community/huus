@@ -41,6 +41,7 @@ huus_macros::define_huus! {
         integer: Vec i64,
         choice: Enum1,
         union: Union1,
+        bson: Bson,
     }
 }
 
@@ -72,6 +73,7 @@ fn test_data_contents() {
         integer: vec![4, 7],
         choice: Enum1Data::Choice1,
         union: Union1Data::Choice1(Doc1Data { integer: Some(6), string: "pqr".to_string() }),
+        bson: doc! { "a": 1, "b": 2 },
     };
     let expected = doc! {
         "_id": object_id,
@@ -97,7 +99,8 @@ fn test_data_contents() {
             "int": 6i32,
             "str": "pqr",
             "_huus_variant": "choice_1"
-        }
+        },
+        "bson": { "a": 1, "b": 2 },
     };
     assert_eq!(data.into_doc(), expected);
 }
@@ -109,6 +112,8 @@ fn test_filter_contents_by_assign() {
 
     let object_id = huus::types::ObjectId::new().unwrap();
     let date = chrono::Utc::now();
+
+    // Assign using explicit cast to `value`.
     let filter1 = Doc3Filter {
         object_id: huus::filters::ObjectIdEntry::Value(object_id.clone()),
         data: huus::filters::ObjectEntry::Dot(Doc1Filter {
@@ -136,8 +141,10 @@ fn test_filter_contents_by_assign() {
             integer: Some(6),
             string: "pqr".to_string(),
         })),
+        bson: huus::filters::BsonEntry::Value(doc! { "a": 1, "b": 2 }),
     };
 
+    // Assign using implicit cast (`into`) to `value` (where possible).
     let filter2 = Doc3Filter {
         object_id: object_id.clone().into(),
         data: huus::filters::ObjectEntry::Dot(Doc1Filter {
@@ -166,6 +173,7 @@ fn test_filter_contents_by_assign() {
             integer: Some(6),
             string: "pqr".to_string(),
         })),
+        bson: doc! { "a": 1, "b": 2 }.into(),
     };
 
     let expected = doc! {
@@ -193,7 +201,8 @@ fn test_filter_contents_by_assign() {
             "int": 6,
             "str": "pqr",
             "_huus_variant": "choice_1",
-        }
+        },
+        "bson": { "a": 1, "b": 2 },
     };
 
     assert_eq!(filter1.build_filter().into_doc(), expected);
@@ -282,6 +291,7 @@ fn test_value_contents_by_assign() {
             integer: Some(6),
             string: Some("pqr".to_string()),
         })),
+        bson: Some(doc! { "a": 1, "b": 2 }),
     };
     let expected = bson!({
         "_id": object_id,
@@ -310,7 +320,8 @@ fn test_value_contents_by_assign() {
             "int": 6i32,
             "str": "pqr",
             "_huus_variant": "choice_1",
-        }
+        },
+        "bson": { "a": 1, "b": 2 },
     });
     assert_eq!(value.build_value().into_bson(), expected);
 }
@@ -347,6 +358,8 @@ fn test_update_contents_by_assign() {
 
     let object_id = huus::types::ObjectId::new().unwrap();
     let date = chrono::Utc::now();
+
+    // Assign using explicit cast to `value`.
     let update1 = Doc3Update {
         object_id: huus::updates::ObjectIdEntry::Value(object_id.clone()),
         data: huus::updates::ObjectEntry::Dot(Doc1Update {
@@ -386,8 +399,10 @@ fn test_update_contents_by_assign() {
             integer: huus::updates::I32Entry::Value(6),
             string: huus::updates::StringEntry::Value("pqr".to_string()),
         })),
+        bson: huus::updates::BsonEntry::Value(doc! { "a": 1, "b": 2 }),
     };
 
+    // Assign using implicit cast (`into`) to `value` (where possible).
     let update2 = Doc3Update {
         object_id: object_id.clone().into(),
         data: huus::updates::ObjectEntry::Dot(Doc1Update {
@@ -427,6 +442,7 @@ fn test_update_contents_by_assign() {
             integer: huus::updates::I32Entry::Value(6),
             string: huus::updates::StringEntry::Value("pqr".to_string()),
         })),
+        bson: doc! { "a": 1, "b": 2 }.into(),
     };
 
     let expected = doc! {
@@ -447,6 +463,7 @@ fn test_update_contents_by_assign() {
         "union.int": 6i32,
         "union.str": "pqr",
         "union._huus_variant": "choice_1",
+        "bson": { "a": 1, "b": 2 },
         "$push": {
             "integer.$": 4i64,
             "array": {

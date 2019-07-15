@@ -90,6 +90,12 @@ where
     }
 }
 
+impl BuildValue for bson::Document {
+    fn build_value(self) -> Value {
+        Value::new(bson::Bson::Document(self))
+    }
+}
+
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]

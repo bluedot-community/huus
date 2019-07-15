@@ -898,6 +898,37 @@ impl std::convert::From<i64> for I64Entry {
     }
 }
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#[derive(Clone, Debug)]
+pub enum BsonEntry {
+    Value(bson::Document),
+    Field(Field<bson::Document>),
+    Empty,
+}
+
+impl BuildInnerUpdate for BsonEntry {
+    fn build_update(self, field: String) -> Update {
+        match self {
+            BsonEntry::Value(value) => Update::with_field(field, bson::Bson::Document(value)),
+            BsonEntry::Field(value) => value.build_update(field),
+            BsonEntry::Empty => Update::empty(),
+        }
+    }
+}
+
+impl Default for BsonEntry {
+    fn default() -> Self {
+        BsonEntry::Empty
+    }
+}
+
+impl std::convert::From<bson::Document> for BsonEntry {
+    fn from(value: bson::Document) -> BsonEntry {
+        BsonEntry::Value(value)
+    }
+}
+
 // -------------------------------------------------------------------------------------------------
 
 enum UpdateOperator {

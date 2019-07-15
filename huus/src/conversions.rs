@@ -82,6 +82,14 @@ where
 
 // -------------------------------------------------------------------------------------------------
 
+impl IntoDoc for bson::Document {
+    fn into_doc(self) -> bson::Document {
+        self
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
 impl HuusFromBson for String {
     fn huus_from_bson(bson: bson::Bson) -> Result<Self, ConversionError> {
         match bson {

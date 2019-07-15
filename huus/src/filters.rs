@@ -967,6 +967,37 @@ impl std::convert::From<i64> for I64Entry {
     }
 }
 
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#[derive(Clone, Debug)]
+pub enum BsonEntry {
+    Value(bson::Document),
+    Element(Element),
+    Empty,
+}
+
+impl BuildInnerFilter for BsonEntry {
+    fn build_filter(self, field: String) -> Filter {
+        match self {
+            BsonEntry::Value(value) => Filter::with_field(field, bson::Bson::Document(value)),
+            BsonEntry::Element(element) => element.build_filter(field),
+            BsonEntry::Empty => Filter::empty(),
+        }
+    }
+}
+
+impl Default for BsonEntry {
+    fn default() -> Self {
+        BsonEntry::Empty
+    }
+}
+
+impl std::convert::From<bson::Document> for BsonEntry {
+    fn from(value: bson::Document) -> BsonEntry {
+        BsonEntry::Value(value)
+    }
+}
+
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]

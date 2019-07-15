@@ -15,6 +15,7 @@ pub enum BuiltInType {
     Date,
     I32,
     I64,
+    Bson,
 }
 
 impl BuiltInType {
@@ -27,6 +28,7 @@ impl BuiltInType {
             "Date" => Ok(BuiltInType::Date),
             "i32" => Ok(BuiltInType::I32),
             "i64" => Ok(BuiltInType::I64),
+            "Bson" => Ok(BuiltInType::Bson),
             _ => Err(()),
         }
     }
