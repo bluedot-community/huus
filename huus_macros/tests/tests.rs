@@ -626,12 +626,10 @@ fn test_insert_query() {
         string: Some("def".to_string()),
     };
 
-    let command = huus::commands::InsertCommand::new(
-        "abc_collection".to_string(),
-        doc! { "data": { "int": 1, "str": "abc" }, "string": "def" },
-    );
-
-    assert_eq!(data.insert(), command);
+    let command = data.insert();
+    let actual = command.get_document();
+    assert_eq!(*actual.get_document("data").unwrap(), doc! { "int": 1, "str": "abc" });
+    assert_eq!(*actual.get_str("string").unwrap(), "def".to_string());
 }
 
 #[test]

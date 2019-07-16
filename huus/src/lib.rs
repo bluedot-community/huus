@@ -27,7 +27,7 @@ pub mod models {
 }
 
 pub mod prelude {
-    pub use crate::conversions::HuusEnum;
+    pub use crate::conversions::{FromDoc, HuusEnum, IntoDoc};
     pub use crate::filters::{ArrayFilter, ComparisonFilter, ElementFilter, ObjectFilter};
     pub use crate::query::Query;
     pub use crate::updates::{

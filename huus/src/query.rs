@@ -3,8 +3,6 @@
 
 //! Contains a trait representing all possible operations that may be performed on database.
 
-use std::marker::PhantomData;
-
 use crate::updates::BuildUpdate;
 use crate::{commands, conversions, filters, updates};
 
@@ -28,117 +26,104 @@ pub trait Query: Sized {
     fn get_indexed_fields() -> Vec<&'static str>;
 
     fn create_collection() -> commands::CreateCollectionCommand {
-        commands::CreateCollectionCommand {
-            collection_name: Self::get_collection_name().to_string(),
-        }
+        commands::CreateCollectionCommand::new(Self::get_collection_name().to_string())
     }
 
     fn drop_collection() -> commands::DropCollectionCommand {
-        commands::DropCollectionCommand { collection_name: Self::get_collection_name().to_string() }
+        commands::DropCollectionCommand::new(Self::get_collection_name().to_string())
     }
 
     fn create_indexes() -> commands::CreateIndexesCommand {
-        commands::CreateIndexesCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            indexed_fields: Self::get_indexed_fields().iter().map(|f| f.to_string()).collect(),
-        }
+        commands::CreateIndexesCommand::new(
+            Self::get_collection_name().to_string(),
+            Self::get_indexed_fields().iter().map(|f| f.to_string()).collect(),
+        )
     }
 
     fn fetch_all() -> commands::FindCommand<Self::Data> {
-        commands::FindCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            filter: filter::all(),
-            limit: None,
-            phantom: PhantomData,
-        }
+        commands::FindCommand::new(Self::get_collection_name().to_string(), filter::all(), None)
     }
 
     fn find_one(self) -> commands::FindOneCommand<Self::Data>
     where
         Self: filters::BuildFilter,
     {
-        commands::FindOneCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            filter: self.build_filter().into_doc(),
-            phantom: PhantomData,
-        }
+        commands::FindOneCommand::new(
+            Self::get_collection_name().to_string(),
+            self.build_filter().into_doc(),
+        )
     }
 
     fn find(self) -> commands::FindCommand<Self::Data>
     where
         Self: filters::BuildFilter,
     {
-        commands::FindCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            filter: self.build_filter().into_doc(),
-            limit: None,
-            phantom: PhantomData,
-        }
+        commands::FindCommand::new(
+            Self::get_collection_name().to_string(),
+            self.build_filter().into_doc(),
+            None,
+        )
     }
 
     fn text_search(pattern: String) -> commands::FindCommand<Self::Data> {
-        commands::FindCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            filter: filter::text(pattern),
-            limit: None,
-            phantom: PhantomData,
-        }
+        commands::FindCommand::new(
+            Self::get_collection_name().to_string(),
+            filter::text(pattern),
+            None,
+        )
     }
 
     fn insert(self) -> commands::InsertCommand
     where
         Self: conversions::IntoDoc,
     {
-        commands::InsertCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            document: self.into_doc(),
-        }
+        commands::InsertCommand::new(Self::get_collection_name().to_string(), self.into_doc())
     }
 
     fn update(self, update: Self::Update) -> commands::UpdateCommand
     where
         Self: filters::BuildFilter,
     {
-        commands::UpdateCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            filter: self.build_filter().into_doc(),
-            update: update.build_update().into_doc(),
-            options: commands::UpdateOptions::UpdateOne,
-        }
+        commands::UpdateCommand::new(
+            Self::get_collection_name().to_string(),
+            self.build_filter().into_doc(),
+            update.build_update().into_doc(),
+            commands::UpdateOptions::UpdateOne,
+        )
     }
 
     fn update_many(self, update: Self::Update) -> commands::UpdateCommand
     where
         Self: filters::BuildFilter,
     {
-        commands::UpdateCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            filter: self.build_filter().into_doc(),
-            update: update.build_update().into_doc(),
-            options: commands::UpdateOptions::UpdateMany,
-        }
+        commands::UpdateCommand::new(
+            Self::get_collection_name().to_string(),
+            self.build_filter().into_doc(),
+            update.build_update().into_doc(),
+            commands::UpdateOptions::UpdateMany,
+        )
     }
 
     fn remove_one(self) -> commands::RemoveCommand
     where
         Self: filters::BuildFilter,
     {
-        commands::RemoveCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            filter: self.build_filter().into_doc(),
-            options: commands::RemoveOptions::RemoveOne,
-        }
+        commands::RemoveCommand::new(
+            Self::get_collection_name().to_string(),
+            self.build_filter().into_doc(),
+            commands::RemoveOptions::RemoveOne,
+        )
     }
 
     fn remove(self) -> commands::RemoveCommand
     where
         Self: filters::BuildFilter,
     {
-        commands::RemoveCommand {
-            collection_name: Self::get_collection_name().to_string(),
-            filter: self.build_filter().into_doc(),
-            options: commands::RemoveOptions::RemoveMany,
-        }
+        commands::RemoveCommand::new(
+            Self::get_collection_name().to_string(),
+            self.build_filter().into_doc(),
+            commands::RemoveOptions::RemoveMany,
+        )
     }
 }
 

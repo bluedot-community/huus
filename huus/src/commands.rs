@@ -78,33 +78,38 @@ impl DropCollectionCommand {
 
 #[derive(Debug, PartialEq)]
 pub struct CreateIndexesCommand {
-    pub(crate) collection_name: String,
-    pub(crate) indexed_fields: Vec<String>,
+    pub(crate) command: Option<bson::Document>,
 }
 
 impl CreateIndexesCommand {
     pub fn new(collection_name: String, indexed_fields: Vec<String>) -> Self {
-        Self { collection_name, indexed_fields }
+        if indexed_fields.len() > 0 {
+            let mut keys = bson::Document::new();
+            for key in indexed_fields.iter() {
+                keys.insert_bson(key.clone(), bson::Bson::String("text".to_string()));
+            }
+
+            let command = doc! {
+                "createIndexes": collection_name.clone(),
+                "indexes": [{
+                    "name": collection_name.clone(),
+                    "key": keys,
+                }],
+            };
+
+            Self { command: Some(command) }
+        } else {
+            Self { command: None }
+        }
     }
 
-    pub fn get_command(&self) -> bson::Document {
-        let mut keys = bson::Document::new();
-        for key in self.indexed_fields.iter() {
-            keys.insert_bson(key.clone(), bson::Bson::String("text".to_string()));
-        }
-
-        doc! {
-            "createIndexes": self.collection_name.clone(),
-            "indexes": [{
-                "name": self.collection_name.clone(),
-                "key": keys,
-            }],
-        }
+    pub fn get_command(&self) -> Option<&bson::Document> {
+        self.command.as_ref()
     }
 
     pub fn execute(&self, db: &mongo_driver::database::Database) -> Result<(), HuusError> {
-        if self.indexed_fields.len() > 0 {
-            db.command_simple(self.get_command(), None)?;
+        if let Some(command) = self.get_command() {
+            db.command_simple(command.clone(), None)?;
         }
         Ok(())
     }
@@ -209,32 +214,30 @@ where
 pub struct InsertCommand {
     pub(crate) collection_name: String,
     pub(crate) document: bson::Document,
+    pub(crate) id: bson::Bson,
 }
 
 impl InsertCommand {
-    pub fn new(collection_name: String, document: bson::Document) -> Self {
-        Self { collection_name, document }
+    pub fn new(collection_name: String, mut document: bson::Document) -> Self {
+        let id = match document.get("_id") {
+            Some(id) => id.clone(),
+            None => {
+                let id = bson::oid::ObjectId::new().expect("Generate new ObjectId");
+                document.insert("_id", id.clone());
+                bson::Bson::ObjectId(id)
+            }
+        };
+        Self { collection_name, document, id }
     }
 
-    pub fn execute(
-        &self,
-        db: &mongo_driver::database::Database,
-    ) -> Result<bson::oid::ObjectId, HuusError> {
-        let collection = db.get_collection(self.collection_name.as_bytes());
+    pub fn get_document(&self) -> &bson::Document {
+        &self.document
+    }
 
-        match self.document.get_object_id("_id") {
-            Ok(id) => {
-                collection.insert(&self.document, None)?;
-                Ok(id.clone())
-            }
-            Err(..) => {
-                let id = bson::oid::ObjectId::new().expect("Generate new ObjectId");
-                let mut document = self.document.clone();
-                document.insert("_id", id.clone());
-                collection.insert(&document, None)?;
-                Ok(id)
-            }
-        }
+    pub fn execute(&self, db: &mongo_driver::database::Database) -> Result<bson::Bson, HuusError> {
+        let collection = db.get_collection(self.collection_name.as_bytes());
+        collection.insert(&self.document, None)?;
+        Ok(self.id.clone())
     }
 }
 
