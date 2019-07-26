@@ -907,6 +907,24 @@ pub enum BsonEntry {
     Empty,
 }
 
+impl FieldUpdate<bson::Document> for BsonEntry {
+    fn rename(&mut self, new_name: String) {
+        *self = BsonEntry::Field(Field::Rename(new_name));
+    }
+
+    fn set(&mut self, value: bson::Document) {
+        *self = BsonEntry::Field(Field::Set(value));
+    }
+
+    fn set_on_insert(&mut self, value: bson::Document) {
+        *self = BsonEntry::Field(Field::SetOnInsert(value));
+    }
+
+    fn unset(&mut self) {
+        *self = BsonEntry::Field(Field::Unset);
+    }
+}
+
 impl BuildInnerUpdate for BsonEntry {
     fn build_update(self, field: String) -> Update {
         match self {
