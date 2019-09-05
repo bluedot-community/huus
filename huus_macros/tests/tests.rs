@@ -33,7 +33,7 @@ huus_macros::define_huus! {
         object_id as "_id": ObjectId,
         data: Doc1,
         array: Vec Doc1,
-        simple_map: BTreeMap Enum1 String,
+        simple_map: BTreeMap String String,
         nested_map: BTreeMap Enum1 Doc1,
         boolean: bool,
         date: Date,
@@ -60,8 +60,8 @@ fn test_data_contents() {
             Doc1Data { integer: Some(3), string: "ghi".to_string() },
         ],
         simple_map: maplit::btreemap! {
-            Enum1Data::Choice1 => "one".to_string(),
-            Enum1Data::Choice2 => "two".to_string(),
+            "choice_1".to_string() => "one".to_string(),
+            "choice_2".to_string() => "two".to_string(),
         },
         nested_map: maplit::btreemap! {
             Enum1Data::Choice1 => Doc1Data { integer: Some(4), string: "jkl".to_string() },
@@ -125,8 +125,8 @@ fn test_filter_contents_by_assign() {
             Doc1Data { integer: 3.into(), string: "ghi".into() },
         ])),
         simple_map: huus::filters::BTreeMapEntry::Value(maplit::btreemap! {
-            Enum1Data::Choice1 => "one".to_string(),
-            Enum1Data::Choice2 => "two".to_string(),
+            "choice_1".to_string() => "one".to_string(),
+            "choice_2".to_string() => "two".to_string(),
         }),
         nested_map: huus::filters::BTreeMapEntry::Value(maplit::btreemap! {
             Enum1Data::Choice1 => Doc1Data { integer: Some(4), string: "jkl".to_string() },
@@ -157,8 +157,8 @@ fn test_filter_contents_by_assign() {
         ]
         .into(),
         simple_map: huus::filters::BTreeMapEntry::Value(maplit::btreemap! {
-            Enum1Data::Choice1 => "one".to_string(),
-            Enum1Data::Choice2 => "two".to_string(),
+            "choice_1".to_string() => "one".to_string(),
+            "choice_2".to_string() => "two".to_string(),
         }),
         nested_map: huus::filters::BTreeMapEntry::Value(maplit::btreemap! {
             Enum1Data::Choice1 => Doc1Data { integer: Some(4), string: "jkl".to_string() },
@@ -269,8 +269,8 @@ fn test_value_contents_by_assign() {
             string: "def".to_string(),
         }])),
         simple_map: Some(maplit::btreemap! {
-            Enum1Value::Choice1 => "one".to_string(),
-            Enum1Value::Choice2 => "two".to_string(),
+            "choice_1".to_string() => "one".to_string(),
+            "choice_2".to_string() => "two".to_string(),
         }),
         nested_map: Some(maplit::btreemap! {
             Enum1Value::Choice1 => Doc1Data {
@@ -374,8 +374,8 @@ fn test_update_contents_by_assign() {
             huus::updates::Operator::None,
         ),
         simple_map: huus::updates::BTreeMapEntry::Value(maplit::btreemap! {
-            Enum1Data::Choice1 => "one".to_string(),
-            Enum1Data::Choice2 => "two".to_string(),
+            "choice_1".to_string() => "one".to_string(),
+            "choice_2".to_string() => "two".to_string(),
         }),
         nested_map: huus::updates::BTreeMapEntry::Value(maplit::btreemap! {
             Enum1Data::Choice1 => Doc1Data {
@@ -417,8 +417,8 @@ fn test_update_contents_by_assign() {
             huus::updates::Operator::None,
         ),
         simple_map: huus::updates::BTreeMapEntry::Value(maplit::btreemap! {
-            Enum1Data::Choice1 => "one".to_string(),
-            Enum1Data::Choice2 => "two".to_string(),
+            "choice_1".to_string() => "one".to_string(),
+            "choice_2".to_string() => "two".to_string(),
         }),
         nested_map: huus::updates::BTreeMapEntry::Value(maplit::btreemap! {
             Enum1Data::Choice1 => Doc1Data {

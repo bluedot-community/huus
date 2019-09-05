@@ -16,7 +16,7 @@ enum TestEnum {
     Def,
 }
 
-impl huus::conversions::HuusEnum for TestEnum {
+impl huus::conversions::HuusKey for TestEnum {
     fn from_str(string: &str) -> Result<Self, huus::errors::ConversionError> {
         match string.as_ref() {
             "abc" => Ok(TestEnum::Abc),

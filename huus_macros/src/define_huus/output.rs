@@ -265,12 +265,12 @@ impl Member {
         let variant = self.variant.to_data(self.variant_span);
         match &self.container {
             Container::Array => quote::quote! { Vec<#variant> },
-            Container::HashMap(key_type) => {
-                let key_ident = key_type.to_data();
+            Container::HashMap(key_variant) => {
+                let key_ident = key_variant.to_data(self.variant_span);
                 quote::quote! { std::collections::HashMap<#key_ident, #variant> }
             }
-            Container::BTreeMap(key_type) => {
-                let key_ident = key_type.to_data();
+            Container::BTreeMap(key_variant) => {
+                let key_ident = key_variant.to_data(self.variant_span);
                 quote::quote! { std::collections::BTreeMap<#key_ident, #variant> }
             }
             Container::Plain => variant,
@@ -284,13 +284,13 @@ impl Member {
                 let filter_type = self.variant.to_short_filter(self.variant_span);
                 quote::quote! { huus::filters::ArrayEntry<#filter_type, #data_type> }
             }
-            Container::BTreeMap(key_type) => {
-                let key_ident = key_type.to_data();
+            Container::BTreeMap(key_variant) => {
+                let key_ident = key_variant.to_data(self.variant_span);
                 let data_type = self.variant.to_data(self.variant_span);
                 quote::quote! { huus::filters::BTreeMapEntry<#key_ident, #data_type> }
             }
-            Container::HashMap(key_type) => {
-                let key_ident = key_type.to_data();
+            Container::HashMap(key_variant) => {
+                let key_ident = key_variant.to_data(self.variant_span);
                 let data_type = self.variant.to_data(self.variant_span);
                 quote::quote! { huus::filters::HashMapEntry<#key_ident, #data_type> }
             }
@@ -304,13 +304,13 @@ impl Member {
                 let variant = self.variant.to_data(self.variant_span);
                 quote::quote! { huus::values::Array<#variant> }
             }
-            Container::HashMap(key_type) => {
-                let key_ident = key_type.to_value();
+            Container::HashMap(key_variant) => {
+                let key_ident = key_variant.to_value(self.variant_span);
                 let variant = self.variant.to_data(self.variant_span);
                 quote::quote! { std::collections::HashMap<#key_ident, #variant> }
             }
-            Container::BTreeMap(key_type) => {
-                let key_ident = key_type.to_value();
+            Container::BTreeMap(key_variant) => {
+                let key_ident = key_variant.to_value(self.variant_span);
                 let variant = self.variant.to_data(self.variant_span);
                 quote::quote! { std::collections::BTreeMap<#key_ident, #variant> }
             }
@@ -324,13 +324,13 @@ impl Member {
                 let variant = self.variant.to_value(self.variant_span);
                 quote::quote! { huus::updates::ArrayEntry<#variant> }
             }
-            Container::BTreeMap(key_type) => {
-                let key_ident = key_type.to_data();
+            Container::BTreeMap(key_variant) => {
+                let key_ident = key_variant.to_data(self.variant_span);
                 let variant = self.variant.to_data(self.variant_span);
                 quote::quote! { huus::updates::BTreeMapEntry<#key_ident, #variant> }
             }
-            Container::HashMap(key_type) => {
-                let key_ident = key_type.to_data();
+            Container::HashMap(key_variant) => {
+                let key_ident = key_variant.to_data(self.variant_span);
                 let variant = self.variant.to_data(self.variant_span);
                 quote::quote! { huus::updates::HashMapEntry<#key_ident, #variant> }
             }
@@ -658,14 +658,16 @@ impl<'a> IndexedFields<'a> {
                     let keys = match &member.container {
                         Container::Array | Container::Plain => Vec::new(),
                         Container::BTreeMap(variant) | Container::HashMap(variant) => {
-                            let entity = self
-                                .spec
-                                .find_entity(&variant.name)
-                                .expect(&format!("Failed to find '{}'", variant.name));
-                            match entity {
-                                Entity::Enum(enum_spec) => enum_spec.to_db_names(),
-                                _ => {
-                                    panic!("Map key must be an enum");
+                            match variant {
+                                Variant::Field(_) => Vec::new(),
+                                Variant::Struct(key_type) | Variant::Enum(key_type) | Variant::Union(key_type) => {
+                                    let entity = self
+                                        .spec
+                                        .find_entity(&key_type.name);
+                                    match entity {
+                                        Some(Entity::Enum(enum_spec)) => enum_spec.to_db_names(),
+                                        _ => Vec::new(),
+                                    }
                                 }
                             }
                         }
@@ -808,7 +810,7 @@ fn make_struct_output(spec: Struct, indexed_fields: Vec<String>) -> proc_macro2:
         impl huus::conversions::FromDoc for #data_name {
             fn from_doc(doc: bson::Document)
             -> Result<#data_name, huus::errors::ConversionError> {
-                use huus::conversions::{HuusEnum, HuusIntoStruct};
+                use huus::conversions::{HuusKey, HuusIntoStruct};
                 Ok(#data_name {
                     #( #from_doc_builds )*
                 })
@@ -900,7 +902,7 @@ fn make_enum_output(spec: Enum) -> proc_macro2::TokenStream {
         pub enum #data_name {
             #( #data_choices, )*
         }
-        impl huus::conversions::HuusEnum for #data_name {
+        impl huus::conversions::HuusKey for #data_name {
             fn from_str(string: &str) -> Result<Self, huus::errors::ConversionError> {
                 match string {
                     #( #data_from_string_builds )*
@@ -915,7 +917,7 @@ fn make_enum_output(spec: Enum) -> proc_macro2::TokenStream {
         }
         impl huus::conversions::HuusIntoBson for #data_name {
             fn huus_into_bson(self) -> bson::Bson {
-                use huus::conversions::HuusEnum;
+                use huus::conversions::HuusKey;
                 bson::Bson::String(self.to_str().to_string())
             }
         }
@@ -925,11 +927,11 @@ fn make_enum_output(spec: Enum) -> proc_macro2::TokenStream {
         }
         impl huus::values::BuildValue for #value_name {
             fn build_value(self) -> huus::values::Value {
-                use huus::conversions::HuusEnum;
+                use huus::conversions::HuusKey;
                 huus::values::Value::new(bson::Bson::String(self.to_str().to_string()))
             }
         }
-        impl huus::conversions::HuusEnum for #value_name {
+        impl huus::conversions::HuusKey for #value_name {
             fn from_str(string: &str) -> Result<Self, huus::errors::ConversionError> {
                 match string {
                     #( #value_from_string_builds )*

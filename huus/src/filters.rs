@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use bson::{bson, doc};
 
-use crate::conversions::{HuusEnum, HuusIntoBson};
+use crate::conversions::{HuusKey, HuusIntoBson};
 use crate::types;
 
 // -------------------------------------------------------------------------------------------------
@@ -380,6 +380,40 @@ pub enum StringEntry {
     Empty,
 }
 
+impl ComparisonFilter<String> for StringEntry {
+    fn eq(&mut self, value: String) {
+        *self = StringEntry::Comparison(Comparison::Eq(value));
+    }
+
+    fn gt(&mut self, value: String) {
+        *self = StringEntry::Comparison(Comparison::Gt(value));
+    }
+
+    fn gte(&mut self, value: String) {
+        *self = StringEntry::Comparison(Comparison::Gte(value));
+    }
+
+    fn r#in(&mut self, value: Vec<String>) {
+        *self = StringEntry::Comparison(Comparison::In(value));
+    }
+
+    fn lt(&mut self, value: String) {
+        *self = StringEntry::Comparison(Comparison::Lt(value));
+    }
+
+    fn lte(&mut self, value: String) {
+        *self = StringEntry::Comparison(Comparison::Lte(value));
+    }
+
+    fn ne(&mut self, value: String) {
+        *self = StringEntry::Comparison(Comparison::Ne(value));
+    }
+
+    fn nin(&mut self, value: Vec<String>) {
+        *self = StringEntry::Comparison(Comparison::Nin(value));
+    }
+}
+
 impl BuildInnerFilter for StringEntry {
     fn build_filter(self, field: String) -> Filter {
         match self {
@@ -412,19 +446,19 @@ impl std::convert::From<String> for StringEntry {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #[derive(Clone, Debug)]
-pub enum EnumEntry<E>
+pub enum EnumEntry<K>
 where
-    E: HuusEnum,
+    K: HuusKey,
 {
-    Value(E),
+    Value(K),
     Comparison(Comparison<String>),
     Element(Element),
     Empty,
 }
 
-impl<E> BuildInnerFilter for EnumEntry<E>
+impl<K> BuildInnerFilter for EnumEntry<K>
 where
-    E: HuusEnum,
+    K: HuusKey,
 {
     fn build_filter(self, field: String) -> Filter {
         match self {
@@ -438,9 +472,9 @@ where
     }
 }
 
-impl<E> Default for EnumEntry<E>
+impl<K> Default for EnumEntry<K>
 where
-    E: HuusEnum,
+    K: HuusKey,
 {
     fn default() -> Self {
         EnumEntry::Empty
@@ -505,20 +539,20 @@ where
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #[derive(Clone, Debug)]
-pub enum BTreeMapEntry<E, B>
+pub enum BTreeMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
-    Value(BTreeMap<E, B>),
-    Logical(Box<Logical<BTreeMapEntry<E, B>>>),
+    Value(BTreeMap<K, B>),
+    Logical(Box<Logical<BTreeMapEntry<K, B>>>),
     Element(Element),
     Empty,
 }
 
-impl<E, B> BuildInnerFilter for BTreeMapEntry<E, B>
+impl<K, B> BuildInnerFilter for BTreeMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn build_filter(self, field: String) -> Filter {
@@ -531,9 +565,9 @@ where
     }
 }
 
-impl<E, B> Default for BTreeMapEntry<E, B>
+impl<K, B> Default for BTreeMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn default() -> Self {
@@ -544,20 +578,20 @@ where
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #[derive(Clone, Debug)]
-pub enum HashMapEntry<E, B>
+pub enum HashMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
-    Value(HashMap<E, B>),
-    Logical(Box<Logical<HashMapEntry<E, B>>>),
+    Value(HashMap<K, B>),
+    Logical(Box<Logical<HashMapEntry<K, B>>>),
     Element(Element),
     Empty,
 }
 
-impl<E, B> BuildInnerFilter for HashMapEntry<E, B>
+impl<K, B> BuildInnerFilter for HashMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn build_filter(self, field: String) -> Filter {
@@ -570,9 +604,9 @@ where
     }
 }
 
-impl<E, B> Default for HashMapEntry<E, B>
+impl<K, B> Default for HashMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn default() -> Self {

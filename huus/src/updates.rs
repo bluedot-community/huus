@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::conversions::{HuusEnum, HuusIntoBson};
+use crate::conversions::{HuusKey, HuusIntoBson};
 use crate::values::BuildValue;
 use crate::{types, values};
 
@@ -41,6 +41,8 @@ impl PopOption {
 #[derive(Clone, Debug)]
 pub enum Operator {
     None,
+
+    /// https://docs.mongodb.com/manual/reference/operator/update/positional/
     First,
 }
 
@@ -311,18 +313,18 @@ impl std::convert::From<String> for StringEntry {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #[derive(Clone, Debug)]
-pub enum EnumEntry<E>
+pub enum EnumEntry<K>
 where
-    E: HuusEnum,
+    K: HuusKey,
 {
-    Value(E),
+    Value(K),
     Field(Field<String>),
     Empty,
 }
 
-impl<E> FieldUpdate<String> for EnumEntry<E>
+impl<K> FieldUpdate<String> for EnumEntry<K>
 where
-    E: HuusEnum,
+    K: HuusKey,
 {
     fn rename(&mut self, new_name: String) {
         *self = EnumEntry::Field(Field::Rename(new_name));
@@ -341,9 +343,9 @@ where
     }
 }
 
-impl<E> BuildInnerUpdate for EnumEntry<E>
+impl<K> BuildInnerUpdate for EnumEntry<K>
 where
-    E: HuusEnum,
+    K: HuusKey,
 {
     fn build_update(self, field: String) -> Update {
         match self {
@@ -356,9 +358,9 @@ where
     }
 }
 
-impl<E> Default for EnumEntry<E>
+impl<K> Default for EnumEntry<K>
 where
-    E: HuusEnum,
+    K: HuusKey,
 {
     fn default() -> Self {
         EnumEntry::Empty
@@ -443,30 +445,30 @@ where
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #[derive(Clone, Debug)]
-pub enum HashMapEntry<E, B>
+pub enum HashMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
-    Value(HashMap<E, B>),
-    Field(Field<HashMap<E, B>>),
+    Value(HashMap<K, B>),
+    Field(Field<HashMap<K, B>>),
     Empty,
 }
 
-impl<E, B> FieldUpdate<HashMap<E, B>> for HashMapEntry<E, B>
+impl<K, B> FieldUpdate<HashMap<K, B>> for HashMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn rename(&mut self, new_name: String) {
         *self = HashMapEntry::Field(Field::Rename(new_name));
     }
 
-    fn set(&mut self, value: HashMap<E, B>) {
+    fn set(&mut self, value: HashMap<K, B>) {
         *self = HashMapEntry::Field(Field::Set(value));
     }
 
-    fn set_on_insert(&mut self, value: HashMap<E, B>) {
+    fn set_on_insert(&mut self, value: HashMap<K, B>) {
         *self = HashMapEntry::Field(Field::SetOnInsert(value));
     }
 
@@ -475,9 +477,9 @@ where
     }
 }
 
-impl<E, B> BuildInnerUpdate for HashMapEntry<E, B>
+impl<K, B> BuildInnerUpdate for HashMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn build_update(self, field: String) -> Update {
@@ -489,9 +491,9 @@ where
     }
 }
 
-impl<E, B> Default for HashMapEntry<E, B>
+impl<K, B> Default for HashMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn default() -> Self {
@@ -502,30 +504,30 @@ where
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #[derive(Clone, Debug)]
-pub enum BTreeMapEntry<E, B>
+pub enum BTreeMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
-    Value(BTreeMap<E, B>),
-    Field(Field<BTreeMap<E, B>>),
+    Value(BTreeMap<K, B>),
+    Field(Field<BTreeMap<K, B>>),
     Empty,
 }
 
-impl<E, B> FieldUpdate<BTreeMap<E, B>> for BTreeMapEntry<E, B>
+impl<K, B> FieldUpdate<BTreeMap<K, B>> for BTreeMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn rename(&mut self, new_name: String) {
         *self = BTreeMapEntry::Field(Field::Rename(new_name));
     }
 
-    fn set(&mut self, value: BTreeMap<E, B>) {
+    fn set(&mut self, value: BTreeMap<K, B>) {
         *self = BTreeMapEntry::Field(Field::Set(value));
     }
 
-    fn set_on_insert(&mut self, value: BTreeMap<E, B>) {
+    fn set_on_insert(&mut self, value: BTreeMap<K, B>) {
         *self = BTreeMapEntry::Field(Field::SetOnInsert(value));
     }
 
@@ -534,9 +536,9 @@ where
     }
 }
 
-impl<E, B> BuildInnerUpdate for BTreeMapEntry<E, B>
+impl<K, B> BuildInnerUpdate for BTreeMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn build_update(self, field: String) -> Update {
@@ -548,9 +550,9 @@ where
     }
 }
 
-impl<E, B> Default for BTreeMapEntry<E, B>
+impl<K, B> Default for BTreeMapEntry<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn default() -> Self {

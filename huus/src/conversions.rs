@@ -39,22 +39,22 @@ pub trait HuusIntoBson {
 
 // -------------------------------------------------------------------------------------------------
 
-pub trait HuusEnum: Clone + PartialEq + Eq + PartialOrd + Ord + Hash {
+pub trait HuusKey: Clone + PartialEq + Eq + PartialOrd + Ord + Hash {
     fn from_str(string: &str) -> Result<Self, ConversionError>;
-    fn to_str(&self) -> &'static str;
+    fn to_str(&self) -> &str;
 }
 
 // -------------------------------------------------------------------------------------------------
 
-impl<E, T> FromDoc for BTreeMap<E, T>
+impl<K, T> FromDoc for BTreeMap<K, T>
 where
-    E: HuusEnum,
+    K: HuusKey,
     T: HuusFromBson,
 {
     fn from_doc(document: bson::Document) -> Result<Self, ConversionError> {
         let mut result = BTreeMap::new();
         for (key, value) in document {
-            match E::from_str(&key) {
+            match K::from_str(&key) {
                 Ok(ok) => result.insert(ok, T::huus_from_bson(value)?),
                 Err(err) => return Err(err),
             };
@@ -63,15 +63,15 @@ where
     }
 }
 
-impl<E, T> FromDoc for HashMap<E, T>
+impl<K, T> FromDoc for HashMap<K, T>
 where
-    E: HuusEnum,
+    K: HuusKey,
     T: HuusFromBson,
 {
     fn from_doc(document: bson::Document) -> Result<Self, ConversionError> {
         let mut result = HashMap::new();
         for (key, value) in document {
-            match E::from_str(&key) {
+            match K::from_str(&key) {
                 Ok(ok) => result.insert(ok, T::huus_from_bson(value)?),
                 Err(err) => return Err(err),
             };
@@ -257,9 +257,9 @@ where
     }
 }
 
-impl<E, T> HuusIntoBson for BTreeMap<E, T>
+impl<K, T> HuusIntoBson for BTreeMap<K, T>
 where
-    E: HuusEnum,
+    K: HuusKey,
     T: HuusIntoBson,
 {
     fn huus_into_bson(self) -> bson::Bson {
@@ -271,9 +271,9 @@ where
     }
 }
 
-impl<E, T> HuusIntoBson for HashMap<E, T>
+impl<K, T> HuusIntoBson for HashMap<K, T>
 where
-    E: HuusEnum,
+    K: HuusKey,
     T: HuusIntoBson,
 {
     fn huus_into_bson(self) -> bson::Bson {
@@ -282,6 +282,18 @@ where
             result.insert(key.to_str().to_string(), value.huus_into_bson());
         }
         bson::Bson::Document(result)
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+impl HuusKey for String {
+    fn from_str(string: &str) -> Result<Self, ConversionError> {
+        Ok(String::from(string))
+    }
+
+    fn to_str(&self) -> &str {
+        self.as_ref()
     }
 }
 

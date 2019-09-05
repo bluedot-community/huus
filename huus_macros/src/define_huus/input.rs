@@ -7,6 +7,7 @@ use crate::parser::{ExpectedTokenTree, Parser};
 
 const SPAN: &str = "Span should be present";
 
+#[derive(Clone, PartialEq)]
 pub enum BuiltInType {
     F64,
     String,
@@ -41,6 +42,7 @@ impl BuiltInType {
     }
 }
 
+#[derive(Clone)]
 pub struct PredefinedType {
     pub variant: BuiltInType,
     pub span: proc_macro2::Span,
@@ -56,6 +58,12 @@ impl PredefinedType {
 
     fn allows_indexing(&self) -> bool {
         self.variant.allows_indexing()
+    }
+}
+
+impl PartialEq<PredefinedType> for PredefinedType {
+    fn eq(&self, other: &PredefinedType) -> bool {
+        self.variant == other.variant
     }
 }
 
@@ -83,6 +91,7 @@ impl PartialEq<str> for DefinedType {
     }
 }
 
+#[derive(Clone, PartialEq)]
 pub enum Variant {
     Field(PredefinedType),
     Struct(DefinedType),
@@ -102,8 +111,16 @@ impl Variant {
 #[derive(Clone, PartialEq)]
 pub enum Container {
     Array,
-    BTreeMap(DefinedType),
-    HashMap(DefinedType),
+    BTreeMap(Variant),
+    HashMap(Variant),
+    Plain,
+}
+
+#[derive(Clone, PartialEq)]
+pub enum ContainerTemplate {
+    Array,
+    BTreeMap(String),
+    HashMap(String),
     Plain,
 }
 
@@ -162,7 +179,7 @@ struct MemberTemplate {
     variant_span: Option<proc_macro2::Span>,
     is_optional: bool,
     is_indexed: bool,
-    container: Container,
+    container: ContainerTemplate,
 }
 
 impl MemberTemplate {
@@ -176,7 +193,7 @@ impl MemberTemplate {
             variant_span: None,
             is_optional: false,
             is_indexed: false,
-            container: Container::Plain,
+            container: ContainerTemplate::Plain,
         }
     }
 }
@@ -360,6 +377,23 @@ impl SpecBuilder {
         }
     }
 
+    fn make_container(
+        &self,
+        template: ContainerTemplate,
+        span: proc_macro2::Span,
+    ) -> Result<Container, ()> {
+        Ok(match template {
+            ContainerTemplate::Array => Container::Array,
+            ContainerTemplate::BTreeMap(string) => {
+                Container::BTreeMap(self.make_variant(string, span)?)
+            }
+            ContainerTemplate::HashMap(string) => {
+                Container::HashMap(self.make_variant(string, span)?)
+            }
+            ContainerTemplate::Plain => Container::Plain,
+        })
+    }
+
     fn build_struct(&self, struct_template: StructTemplate) -> Result<Struct, ()> {
         let mut members = Vec::with_capacity(struct_template.members.len());
         for template in struct_template.members {
@@ -376,7 +410,10 @@ impl SpecBuilder {
                 variant_span: variant_span,
                 is_optional: template.is_optional,
                 is_indexed: template.is_indexed,
-                container: template.container,
+                container: self.make_container(
+                    template.container,
+                    variant_span.clone(),
+                )?
             };
             member.validate()?;
             members.push(member);
@@ -395,32 +432,47 @@ impl SpecBuilder {
 
     fn validate_member(&self, member: &MemberTemplate) -> Result<(), ()> {
         match &member.container {
-            Container::BTreeMap(key_type) | Container::HashMap(key_type) => {
-                match self.find_entity(&key_type.name) {
-                    Some(EntityTemplate::Enum(..)) => Ok(()),
-                    Some(_) => {
-                        let msg = format!("Type '{}' is not an huus enum", key_type.name);
-                        member
-                            .variant_span
-                            .expect("Incomplete member type")
-                            .unwrap()
-                            .error(msg)
-                            .emit();
-                        Err(())
+            ContainerTemplate::BTreeMap(string) | ContainerTemplate::HashMap(string) => {
+                if let Ok(builtin_type) = BuiltInType::from_name(&string) {
+                    match builtin_type {
+                        BuiltInType::String => Ok(()),
+                        _ => {
+                            member
+                                .variant_span
+                                .expect("Incomplete member type")
+                                .unwrap()
+                                .error("Only 'String' can be used as a key".to_string())
+                                .emit();
+                            Err(())
+                        }
                     }
-                    None => {
-                        let msg = format!("Type '{}' is not defined as a huus type", key_type.name);
-                        member
-                            .variant_span
-                            .expect("Incomplete member type")
-                            .unwrap()
-                            .error(msg)
-                            .emit();
-                        Err(())
+                } else {
+                    match self.find_entity(&string) {
+                        Some(EntityTemplate::Enum(..)) => Ok(()),
+                        Some(_) => {
+                            let msg = format!("Type '{}' is not an huus enum", string);
+                            member
+                                .variant_span
+                                .expect("Incomplete member type")
+                                .unwrap()
+                                .error(msg)
+                                .emit();
+                            Err(())
+                        }
+                        None => {
+                            let msg = format!("Type '{}' is neither not (pre)defined", string);
+                            member
+                                .variant_span
+                                .expect("Incomplete member type")
+                                .unwrap()
+                                .error(msg)
+                                .emit();
+                            Err(())
+                        }
                     }
                 }
             }
-            Container::Array | Container::Plain => Ok(()),
+            ContainerTemplate::Array | ContainerTemplate::Plain => Ok(()),
         }
     }
 
@@ -551,33 +603,28 @@ fn parse_members(group: proc_macro::Group) -> Result<Vec<MemberTemplate>, ()> {
 
         // Parse type
         let ident = parser.expect_ident(None)?;
+        member.variant_span = Some(ident.span().into());
         let ident_name = ident.to_string();
         match ident_name.as_ref() {
             ARRAY => {
                 let ident = parser.expect_ident(None)?;
-                member.container = Container::Array;
+                member.container = ContainerTemplate::Array;
                 member.variant = Some(ident.to_string());
-                member.variant_span = Some(ident.span().into());
             }
             BTREEMAP => {
                 let ident = parser.expect_ident(None)?;
-                let variant = DefinedType::new(ident.to_string(), ident.span().into());
-                member.container = Container::BTreeMap(variant);
+                member.container = ContainerTemplate::BTreeMap(ident.to_string());
                 let ident = parser.expect_ident(None)?;
                 member.variant = Some(ident.to_string());
-                member.variant_span = Some(ident.span().into());
             }
             HASHMAP => {
                 let ident = parser.expect_ident(None)?;
-                let variant = DefinedType::new(ident.to_string(), ident.span().into());
-                member.container = Container::HashMap(variant);
+                member.container = ContainerTemplate::HashMap(ident.to_string());
                 let ident = parser.expect_ident(None)?;
                 member.variant = Some(ident.to_string());
-                member.variant_span = Some(ident.span().into());
             }
             _ => {
                 member.variant = Some(ident_name);
-                member.variant_span = Some(ident.span().into());
             }
         }
 

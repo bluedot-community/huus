@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::conversions::{HuusEnum, HuusIntoBson};
+use crate::conversions::{HuusKey, HuusIntoBson};
 use crate::types;
 
 // -------------------------------------------------------------------------------------------------
@@ -70,9 +70,9 @@ impl BuildValue for i64 {
     }
 }
 
-impl<E, B> BuildValue for BTreeMap<E, B>
+impl<K, B> BuildValue for BTreeMap<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn build_value(self) -> Value {
@@ -80,9 +80,9 @@ where
     }
 }
 
-impl<E, B> BuildValue for HashMap<E, B>
+impl<K, B> BuildValue for HashMap<K, B>
 where
-    E: HuusEnum,
+    K: HuusKey,
     B: HuusIntoBson,
 {
     fn build_value(self) -> Value {
