@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::conversions::{HuusKey, HuusIntoBson};
+use crate::conversions::{HuusIntoBson, HuusKey};
 use crate::values::BuildValue;
 use crate::{types, values};
 
@@ -190,10 +190,10 @@ pub trait ArrayUpdate<V>
 where
     V: BuildValue,
 {
-    fn add_to_set(&mut self, value: V, operator: Operator);
+    fn add_to_set(&mut self, value: values::PushValue<V>, operator: Operator);
     fn pop(&mut self, option: PopOption, operator: Operator);
-    fn pull(&mut self, value: V, operator: Operator);
-    fn push(&mut self, value: V, operator: Operator);
+    fn pull(&mut self, value: values::PullValue<V>, operator: Operator);
+    fn push(&mut self, value: values::PushValue<V>, operator: Operator);
     fn pull_all(&mut self, value: V, operator: Operator);
 }
 
@@ -202,10 +202,10 @@ pub enum Array<V>
 where
     V: BuildValue,
 {
-    AddToSet(V),
+    AddToSet(values::PushValue<V>),
     Pop(PopOption),
-    Pull(V),
-    Push(V),
+    Pull(values::PullValue<V>),
+    Push(values::PushValue<V>),
     PullAll(V),
 }
 
@@ -577,7 +577,7 @@ impl<V> ArrayUpdate<V> for ArrayEntry<V>
 where
     V: BuildValue,
 {
-    fn add_to_set(&mut self, value: V, operator: Operator) {
+    fn add_to_set(&mut self, value: values::PushValue<V>, operator: Operator) {
         *self = ArrayEntry::Array(Array::AddToSet(value), operator);
     }
 
@@ -585,11 +585,11 @@ where
         *self = ArrayEntry::Array(Array::Pop(option), operator);
     }
 
-    fn pull(&mut self, value: V, operator: Operator) {
+    fn pull(&mut self, value: values::PullValue<V>, operator: Operator) {
         *self = ArrayEntry::Array(Array::Pull(value), operator);
     }
 
-    fn push(&mut self, value: V, operator: Operator) {
+    fn push(&mut self, value: values::PushValue<V>, operator: Operator) {
         *self = ArrayEntry::Array(Array::Push(value), operator);
     }
 

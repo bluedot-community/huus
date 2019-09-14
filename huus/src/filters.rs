@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use bson::{bson, doc};
 
-use crate::conversions::{HuusKey, HuusIntoBson};
+use crate::conversions::{HuusIntoBson, HuusKey};
 use crate::types;
 
 // -------------------------------------------------------------------------------------------------

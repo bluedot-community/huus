@@ -6,6 +6,7 @@
 use bson::{bson, doc};
 use huus::types;
 use huus::updates::*;
+use huus::values::PullValue;
 
 const KEY: &'static str = "xxx";
 
@@ -70,13 +71,14 @@ fn test_field_update() {
 #[test]
 fn test_array_update() {
     use huus::updates::Array::{AddToSet, Pop, Pull, PullAll, Push};
+    use huus::values::{Each, PushValue};
 
-    let operation = AddToSet(3.14);
+    let operation = AddToSet(PushValue::Value(3.14));
     let expected = doc! { "$addToSet": { KEY: 3.14 } };
     assert_eq!(operation.build_update(KEY.to_string()).into_doc(), expected);
 
-    let operation = AddToSet("abc");
-    let expected = doc! { "$addToSet": { KEY: "abc" } };
+    let operation = AddToSet(PushValue::Each(Each::new(vec!["abc", "def"])));
+    let expected = doc! { "$addToSet": { KEY: { "$each": ["abc", "def"] } } };
     assert_eq!(operation.build_update(KEY.to_string()).into_doc(), expected);
 
     let operation = Pop::<i32>(PopOption::First);
@@ -87,20 +89,20 @@ fn test_array_update() {
     let expected = doc! { "$pop": { KEY: 1 } };
     assert_eq!(operation.build_update(KEY.to_string()).into_doc(), expected);
 
-    let operation = Pull(3.14);
+    let operation = Pull(PullValue::Value(3.14));
     let expected = doc! { "$pull": { KEY: 3.14 } };
     assert_eq!(operation.build_update(KEY.to_string()).into_doc(), expected);
 
-    let operation = Pull("abc");
-    let expected = doc! { "$pull": { KEY: "abc" } };
+    let operation = Pull(PullValue::In(vec!["abc", "def"]));
+    let expected = doc! { "$pull": { KEY: { "$in": ["abc", "def"] } } };
     assert_eq!(operation.build_update(KEY.to_string()).into_doc(), expected);
 
-    let operation = Push(3.14);
+    let operation = Push(PushValue::Value(3.14));
     let expected = doc! { "$push": { KEY: 3.14 } };
     assert_eq!(operation.build_update(KEY.to_string()).into_doc(), expected);
 
-    let operation = Push("abc");
-    let expected = doc! { "$push": { KEY: "abc" } };
+    let operation = Push(PushValue::Each(Each::new(vec!["abc", "def"])));
+    let expected = doc! { "$push": { KEY: { "$each": ["abc", "def"] } } };
     assert_eq!(operation.build_update(KEY.to_string()).into_doc(), expected);
 
     let operation = PullAll(3.14);

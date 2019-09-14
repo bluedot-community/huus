@@ -33,4 +33,5 @@ pub mod prelude {
     pub use crate::updates::{
         ArrayUpdate, ElementUpdate, FieldUpdate, NumericalUpdate, ObjectUpdate, Operator,
     };
+    pub use crate::values::{PullValue, PushValue};
 }

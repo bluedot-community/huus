@@ -410,10 +410,7 @@ impl SpecBuilder {
                 variant_span: variant_span,
                 is_optional: template.is_optional,
                 is_indexed: template.is_indexed,
-                container: self.make_container(
-                    template.container,
-                    variant_span.clone(),
-                )?
+                container: self.make_container(template.container, variant_span.clone())?,
             };
             member.validate()?;
             members.push(member);

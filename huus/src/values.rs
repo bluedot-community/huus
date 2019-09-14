@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::conversions::{HuusKey, HuusIntoBson};
+use crate::conversions::{HuusIntoBson, HuusKey};
 use crate::types;
 
 // -------------------------------------------------------------------------------------------------
@@ -70,6 +70,19 @@ impl BuildValue for i64 {
     }
 }
 
+impl<V> BuildValue for Vec<V>
+where
+    V: BuildValue,
+{
+    fn build_value(self) -> Value {
+        let mut values = bson::Array::new();
+        for element in self {
+            values.push(element.build_value().into_bson());
+        }
+        Value::new(bson::Bson::Array(values))
+    }
+}
+
 impl<K, B> BuildValue for BTreeMap<K, B>
 where
     K: HuusKey,
@@ -99,64 +112,21 @@ impl BuildValue for bson::Document {
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
-pub struct Each<T>
+pub struct Each<V>
 where
-    T: HuusIntoBson,
+    V: BuildValue,
 {
-    pub each: Vec<T>,
+    pub each: Vec<V>,
     pub position: Option<usize>,
     pub slice: Option<usize>,
 }
 
-// -------------------------------------------------------------------------------------------------
-
-#[derive(Clone, Debug)]
-pub enum Array<T>
+impl<V> Each<V>
 where
-    T: HuusIntoBson,
+    V: BuildValue,
 {
-    Array(Vec<T>),
-    Each(Each<T>),
-}
-
-impl<T> BuildValue for Array<T>
-where
-    T: HuusIntoBson,
-{
-    fn build_value(self) -> Value {
-        match self {
-            Array::Array(value) => {
-                let mut array = Vec::new();
-                for element in value {
-                    array.push(element.huus_into_bson());
-                }
-                Value::new(bson::Bson::Array(array))
-            }
-            Array::Each(each) => {
-                let mut array = bson::Array::new();
-                for element in each.each {
-                    array.push(element.huus_into_bson());
-                }
-                let mut result = bson::Document::new();
-                result.insert("$each", array);
-                if let Some(position) = each.position {
-                    result.insert("$position", position as i64);
-                }
-                if let Some(slice) = each.slice {
-                    result.insert("$slice", slice as i64);
-                }
-                Value::new(bson::Bson::Document(result))
-            }
-        }
-    }
-}
-
-impl<T> std::convert::From<Vec<T>> for Array<T>
-where
-    T: HuusIntoBson,
-{
-    fn from(value: Vec<T>) -> Array<T> {
-        Array::Array(value)
+    pub fn new(each: Vec<V>) -> Self {
+        Self { each: each, position: None, slice: None }
     }
 }
 
@@ -201,5 +171,103 @@ impl Value {
 
     pub fn into_bson(self) -> bson::Bson {
         self.value
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+pub enum PullValue<V>
+where
+    V: BuildValue,
+{
+    Value(V),
+    In(Vec<V>),
+}
+
+impl<V> BuildValue for PullValue<V>
+where
+    V: BuildValue,
+{
+    fn build_value(self) -> Value {
+        match self {
+            PullValue::Value(value) => value.build_value(),
+            PullValue::In(values) => {
+                let value = values.build_value();
+                let mut result = bson::Document::new();
+                result.insert("$in", value.into_bson());
+                Value::new(bson::Bson::Document(result))
+            }
+        }
+    }
+}
+
+impl<V> std::convert::From<V> for PullValue<V>
+where
+    V: BuildValue,
+{
+    fn from(values: V) -> PullValue<V> {
+        PullValue::Value(values)
+    }
+}
+
+impl<V> std::convert::From<Vec<V>> for PullValue<V>
+where
+    V: BuildValue,
+{
+    fn from(values: Vec<V>) -> PullValue<V> {
+        PullValue::In(values)
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+pub enum PushValue<V>
+where
+    V: BuildValue,
+{
+    Value(V),
+    Each(Each<V>),
+}
+
+impl<V> BuildValue for PushValue<V>
+where
+    V: BuildValue,
+{
+    fn build_value(self) -> Value {
+        match self {
+            PushValue::Value(value) => value.build_value(),
+            PushValue::Each(each) => {
+                let array = each.each.build_value();
+                let mut result = bson::Document::new();
+                result.insert("$each", array.into_bson());
+                if let Some(position) = each.position {
+                    result.insert("$position", position as i64);
+                }
+                if let Some(slice) = each.slice {
+                    result.insert("$slice", slice as i64);
+                }
+                Value::new(bson::Bson::Document(result))
+            }
+        }
+    }
+}
+
+impl<V> std::convert::From<V> for PushValue<V>
+where
+    V: BuildValue,
+{
+    fn from(values: V) -> PushValue<V> {
+        PushValue::Value(values)
+    }
+}
+
+impl<V> std::convert::From<Vec<V>> for PushValue<V>
+where
+    V: BuildValue,
+{
+    fn from(values: Vec<V>) -> PushValue<V> {
+        PushValue::Each(Each::new(values))
     }
 }

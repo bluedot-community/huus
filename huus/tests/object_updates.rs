@@ -107,13 +107,13 @@ fn test_object_entry_update_nested_with_value() {
     let object = DataUpdate2 {
         data: updates::ObjectEntry::Value(DataValue1 { int: 2, string: "abc".to_string() }),
         array: updates::ArrayEntry::Array(
-            updates::Array::Pop(updates::PopOption::Last),
+            updates::Array::Pull(values::PullValue::Value(3.into())),
             Operator::None,
         ),
     };
     let expected = doc! {
         "data": { "int": 2, "string": "abc" },
-        "$pop": { "array": 1 },
+        "$pull": { "array": 3 },
     };
 
     assert_eq!(object.build_update().into_doc(), expected);

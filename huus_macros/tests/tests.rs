@@ -38,7 +38,7 @@ huus_macros::define_huus! {
         boolean: bool,
         date: Date,
         indexed: String+,
-        integer: Vec i64,
+        integers: Vec i64,
         choice: Enum1,
         union: Union1,
         bson: Bson,
@@ -70,7 +70,7 @@ fn test_data_contents() {
         boolean: true,
         date: date,
         indexed: "indexed".to_string(),
-        integer: vec![4, 7],
+        integers: vec![4, 7],
         choice: Enum1Data::Choice1,
         union: Union1Data::Choice1(Doc1Data { integer: Some(6), string: "pqr".to_string() }),
         bson: doc! { "a": 1, "b": 2 },
@@ -93,7 +93,7 @@ fn test_data_contents() {
         "boolean": true,
         "date": date,
         "indexed": "indexed",
-        "integer": [4i64, 7i64],
+        "integers": [4i64, 7i64],
         "choice": "choice_1",
         "union": {
             "int": 6i32,
@@ -135,7 +135,7 @@ fn test_filter_contents_by_assign() {
         boolean: huus::filters::BooleanEntry::Value(true),
         date: huus::filters::DateEntry::Value(date),
         indexed: huus::filters::StringEntry::Value("indexed".to_string()),
-        integer: huus::filters::ArrayEntry::Array(huus::filters::Array::All(vec![4, 7])),
+        integers: huus::filters::ArrayEntry::Array(huus::filters::Array::All(vec![4, 7])),
         choice: huus::filters::EnumEntry::Value(Enum1Data::Choice1),
         union: huus::filters::ObjectEntry::Value(Union1Data::Choice1(Doc1Data {
             integer: Some(6),
@@ -167,7 +167,7 @@ fn test_filter_contents_by_assign() {
         boolean: true.into(),
         date: date.into(),
         indexed: "indexed".into(),
-        integer: vec![4.into(), 7.into()].into(),
+        integers: vec![4.into(), 7.into()].into(),
         choice: huus::filters::EnumEntry::Value(Enum1Data::Choice1),
         union: huus::filters::ObjectEntry::Value(Union1Data::Choice1(Doc1Data {
             integer: Some(6),
@@ -195,7 +195,7 @@ fn test_filter_contents_by_assign() {
         "boolean": true,
         "date": date,
         "indexed": "indexed",
-        "integer": { "$all": [4i64, 7i64] },
+        "integers": { "$all": [4i64, 7i64] },
         "choice": "choice_1",
         "union": {
             "int": 6,
@@ -227,12 +227,12 @@ fn test_filter_contents_by_modification() {
         let mut filter = Doc3Filter::default();
         filter.data = Dot(data);
         filter.boolean = true.into();
-        filter.integer.all(vec![4.into(), 7.into()]);
+        filter.integers.all(vec![4.into(), 7.into()]);
 
         let expected = doc! {
             "data.int": { "$exists": true },
             "boolean": true,
-            "integer": { "$all": [4i64, 7i64] },
+            "integers": { "$all": [4i64, 7i64] },
         };
 
         assert_eq!(filter.build_filter().into_doc(), expected);
@@ -242,12 +242,12 @@ fn test_filter_contents_by_modification() {
         let mut filter = Doc3Filter::default();
         filter.data = Value(data);
         filter.boolean.exists(false);
-        filter.integer.all(vec![4.into(), 7.into()]);
+        filter.integers.all(vec![4.into(), 7.into()]);
 
         let expected = doc! {
             "data": { "int": 3, "str": "ghi" },
             "boolean": { "$exists": false },
-            "integer": { "$all": [4i64, 7i64] },
+            "integers": { "$all": [4i64, 7i64] },
         };
 
         assert_eq!(filter.build_filter().into_doc(), expected);
@@ -264,10 +264,7 @@ fn test_value_contents_by_assign() {
     let value = Doc3Value {
         object_id: Some(object_id.clone()),
         data: Some(Doc1Value { integer: Some(1), string: Some("abc".to_string()) }),
-        array: Some(huus::values::Array::Array(vec![Doc1Data {
-            integer: Some(2),
-            string: "def".to_string(),
-        }])),
+        array: Some(vec![Doc1Value { integer: Some(2), string: Some("def".to_string()) }]),
         simple_map: Some(maplit::btreemap! {
             "choice_1".to_string() => "one".to_string(),
             "choice_2".to_string() => "two".to_string(),
@@ -285,7 +282,7 @@ fn test_value_contents_by_assign() {
         boolean: Some(true),
         date: Some(date),
         indexed: Some("indexed".to_string()),
-        integer: Some(huus::values::Array::Array(vec![4, 5])),
+        integers: Some(vec![4, 5]),
         choice: Some(Enum1Value::Choice1),
         union: Some(Union1Value::Choice1(Doc1Value {
             integer: Some(6),
@@ -314,7 +311,7 @@ fn test_value_contents_by_assign() {
         "boolean": true,
         "date": date,
         "indexed": "indexed",
-        "integer": [4i64, 5i64],
+        "integers": [4i64, 5i64],
         "choice": "choice_1",
         "union": {
             "int": 6i32,
@@ -338,14 +335,14 @@ fn test_value_contents_by_modification() {
     value.object_id = Some(object_id.clone());
     value.boolean = Some(true);
     value.date = Some(date);
-    value.integer = Some(huus::values::Array::Array(vec![4, 5]));
+    value.integers = Some(vec![4, 5]);
     value.choice = Some(Enum1Value::Choice1);
 
     let expected = bson!({
         "_id": object_id,
         "boolean": true,
         "date": date,
-        "integer": [4i64, 5i64],
+        "integers": [4i64, 5i64],
         "choice": "choice_1",
     });
     assert_eq!(value.build_value().into_bson(), expected);
@@ -367,10 +364,10 @@ fn test_update_contents_by_assign() {
             string: huus::updates::StringEntry::Value("abc".to_string()),
         }),
         array: huus::updates::ArrayEntry::Array(
-            huus::updates::Array::Push(Doc1Value {
+            huus::updates::Array::Push(huus::values::PushValue::Value(Doc1Value {
                 integer: Some(2),
                 string: Some("def".to_string()),
-            }),
+            })),
             huus::updates::Operator::None,
         ),
         simple_map: huus::updates::BTreeMapEntry::Value(maplit::btreemap! {
@@ -390,8 +387,8 @@ fn test_update_contents_by_assign() {
         boolean: huus::updates::BooleanEntry::Value(true),
         date: huus::updates::DateEntry::Value(date),
         indexed: huus::updates::StringEntry::Value("indexed".to_string()),
-        integer: huus::updates::ArrayEntry::Array(
-            huus::updates::Array::Push(4),
+        integers: huus::updates::ArrayEntry::Array(
+            huus::updates::Array::Push(huus::values::PushValue::Value(4)),
             huus::updates::Operator::First,
         ),
         choice: huus::updates::EnumEntry::Value(Enum1Value::Choice1),
@@ -410,10 +407,9 @@ fn test_update_contents_by_assign() {
             string: "abc".into(),
         }),
         array: huus::updates::ArrayEntry::Array(
-            huus::updates::Array::Push(Doc1Value {
-                integer: Some(2),
-                string: Some("def".to_string()),
-            }),
+            huus::updates::Array::Push(
+                Doc1Value { integer: Some(2), string: Some("def".to_string()) }.into(),
+            ),
             huus::updates::Operator::None,
         ),
         simple_map: huus::updates::BTreeMapEntry::Value(maplit::btreemap! {
@@ -433,8 +429,8 @@ fn test_update_contents_by_assign() {
         boolean: true.into(),
         date: date.into(),
         indexed: "indexed".into(),
-        integer: huus::updates::ArrayEntry::Array(
-            huus::updates::Array::Push(4),
+        integers: huus::updates::ArrayEntry::Array(
+            huus::updates::Array::Push(4.into()),
             huus::updates::Operator::First,
         ),
         choice: huus::updates::EnumEntry::Value(Enum1Value::Choice1),
@@ -465,7 +461,7 @@ fn test_update_contents_by_assign() {
         "union._huus_variant": "choice_1",
         "bson": { "a": 1, "b": 2 },
         "$push": {
-            "integer.$": 4i64,
+            "integers.$": 4i64,
             "array": {
                 "int": 2i32,
                 "str": "def",
@@ -493,13 +489,13 @@ fn test_update_contents_by_modification() {
     let mut update = Doc3Update::default();
     update.data.dot(update1);
     update.boolean.set(true);
-    update.integer.push(4, Operator::First);
+    update.integers.push(4.into(), Operator::First);
 
     let expected = doc! {
         "data.str": "abc",
         "$max": { "data.int": 40i32 },
         "$set": { "boolean": true },
-        "$push": { "integer.$": 4i64 },
+        "$push": { "integers.$": 4i64 },
     };
 
     assert_eq!(update.build_update().into_doc(), expected);

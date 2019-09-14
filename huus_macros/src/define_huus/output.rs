@@ -301,8 +301,8 @@ impl Member {
     fn to_value(&self) -> proc_macro2::TokenStream {
         match &self.container {
             Container::Array => {
-                let variant = self.variant.to_data(self.variant_span);
-                quote::quote! { huus::values::Array<#variant> }
+                let variant = self.variant.to_value(self.variant_span);
+                quote::quote! { Vec<#variant> }
             }
             Container::HashMap(key_variant) => {
                 let key_ident = key_variant.to_value(self.variant_span);
@@ -657,20 +657,19 @@ impl<'a> IndexedFields<'a> {
 
                     let keys = match &member.container {
                         Container::Array | Container::Plain => Vec::new(),
-                        Container::BTreeMap(variant) | Container::HashMap(variant) => {
-                            match variant {
-                                Variant::Field(_) => Vec::new(),
-                                Variant::Struct(key_type) | Variant::Enum(key_type) | Variant::Union(key_type) => {
-                                    let entity = self
-                                        .spec
-                                        .find_entity(&key_type.name);
-                                    match entity {
-                                        Some(Entity::Enum(enum_spec)) => enum_spec.to_db_names(),
-                                        _ => Vec::new(),
-                                    }
+                        Container::BTreeMap(variant) | Container::HashMap(variant) => match variant
+                        {
+                            Variant::Field(_) => Vec::new(),
+                            Variant::Struct(key_type)
+                            | Variant::Enum(key_type)
+                            | Variant::Union(key_type) => {
+                                let entity = self.spec.find_entity(&key_type.name);
+                                match entity {
+                                    Some(Entity::Enum(enum_spec)) => enum_spec.to_db_names(),
+                                    _ => Vec::new(),
                                 }
                             }
-                        }
+                        },
                     };
 
                     let base = member.db_name.clone() + ".";
