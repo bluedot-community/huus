@@ -9,7 +9,6 @@
 
 extern crate proc_macro;
 extern crate proc_macro2;
-extern crate quote;
 
 mod define_huus;
 mod parser;
@@ -20,6 +19,6 @@ pub fn define_huus(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
         define_huus::output::make_output(spec)
     } else {
         // No need to emit error here - it was already emitted
-        quote::quote!().into()
+        proc_macro::TokenStream::new()
     }
 }

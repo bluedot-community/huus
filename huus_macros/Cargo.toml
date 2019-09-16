@@ -8,9 +8,9 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
+askama = { version = "0.8" }
 proc-macro2 = { version = "1.0" }
 syn = { "version" = "1.0", features = ["full"] }
-quote = { "version" = "1.0" }
 huus = { version = "0.1.0" }
 
 [dev-dependencies]
