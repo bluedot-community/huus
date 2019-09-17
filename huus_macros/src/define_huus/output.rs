@@ -226,19 +226,20 @@ impl Member {
     }
 
     fn to_value(&self) -> String {
+        // TODO: Add separate entries for maps.
         match &self.container {
-            Container::Array => format!("Vec<{}>", self.variant.to_value()),
+            Container::Array => format!("huus::values::ArrayEntry<{}>", self.variant.to_value()),
             Container::HashMap(key_variant) => {
                 let key = key_variant.to_value();
                 let value = self.variant.to_data();
-                format!("std::collections::HashMap<{}, {}>", key, value)
+                format!("huus::values::Entry<std::collections::HashMap<{}, {}>>", key, value)
             }
             Container::BTreeMap(key_variant) => {
                 let key = key_variant.to_value();
                 let value = self.variant.to_data();
-                format!("std::collections::BTreeMap<{}, {}>", key, value)
+                format!("huus::values::Entry<std::collections::BTreeMap<{}, {}>>", key, value)
             }
-            Container::Plain => self.variant.to_value(),
+            Container::Plain => format!("huus::values::Entry<{}>", self.variant.to_value()),
         }
     }
 
@@ -271,7 +272,7 @@ impl Member {
         }
     }
 
-    pub fn conversion(&self) -> String {
+    pub fn to_conversion(&self) -> String {
         match self.container {
             Container::Array => "value.clone().huus_into_struct()?".to_string(),
             Container::HashMap(_) => "value.clone().huus_into_struct()?".to_string(),

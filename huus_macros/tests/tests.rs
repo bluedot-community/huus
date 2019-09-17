@@ -262,33 +262,36 @@ fn test_value_contents_by_assign() {
     let object_id = huus::types::ObjectId::new().unwrap();
     let date = chrono::Utc::now();
     let value = Doc3Value {
-        object_id: Some(object_id.clone()),
-        data: Some(Doc1Value { integer: Some(1), string: Some("abc".to_string()) }),
-        array: Some(vec![Doc1Value { integer: Some(2), string: Some("def".to_string()) }]),
-        simple_map: Some(maplit::btreemap! {
+        object_id: object_id.clone().into(),
+        data: Doc1Value { integer: 1.into(), string: "abc".to_string().into() }.into(),
+        array: vec![Doc1Value { integer: 2.into(), string: "def".to_string().into() }].into(),
+        simple_map: maplit::btreemap! {
             "choice_1".to_string() => "one".to_string(),
             "choice_2".to_string() => "two".to_string(),
-        }),
-        nested_map: Some(maplit::btreemap! {
+        }
+        .into(),
+        nested_map: maplit::btreemap! {
             Enum1Value::Choice1 => Doc1Data {
-                integer: Some(4),
+                integer: 4.into(),
                 string: "jkl".to_string(),
             },
             Enum1Value::Choice2 => Doc1Data {
-                integer: Some(5),
+                integer: 5.into(),
                 string: "mno".to_string(),
             },
-        }),
-        boolean: Some(true),
-        date: Some(date),
-        indexed: Some("indexed".to_string()),
-        integers: Some(vec![4, 5]),
-        choice: Some(Enum1Value::Choice1),
-        union: Some(Union1Value::Choice1(Doc1Value {
-            integer: Some(6),
-            string: Some("pqr".to_string()),
-        })),
-        bson: Some(doc! { "a": 1, "b": 2 }),
+        }
+        .into(),
+        boolean: true.into(),
+        date: date.into(),
+        indexed: vec!["indexed".to_string()].into(),
+        integers: vec![4, 5].into(),
+        choice: Enum1Value::Choice1.into(),
+        union: Union1Value::Choice1(Doc1Value {
+            integer: 6.into(),
+            string: "pqr".to_string().into(),
+        })
+        .into(),
+        bson: doc! { "a": 1, "b": 2 }.into(),
     };
     let expected = bson!({
         "_id": object_id,
@@ -310,7 +313,7 @@ fn test_value_contents_by_assign() {
         },
         "boolean": true,
         "date": date,
-        "indexed": "indexed",
+        "indexed": { "$in": ["indexed"] },
         "integers": [4i64, 5i64],
         "choice": "choice_1",
         "union": {
@@ -332,11 +335,11 @@ fn test_value_contents_by_modification() {
     let date = chrono::Utc::now();
 
     let mut value = Doc3Value::default();
-    value.object_id = Some(object_id.clone());
-    value.boolean = Some(true);
-    value.date = Some(date);
-    value.integers = Some(vec![4, 5]);
-    value.choice = Some(Enum1Value::Choice1);
+    value.object_id = object_id.clone().into();
+    value.boolean = true.into();
+    value.date = date.into();
+    value.integers = vec![4, 5].into();
+    value.choice = Enum1Value::Choice1.into();
 
     let expected = bson!({
         "_id": object_id,
@@ -365,8 +368,8 @@ fn test_update_contents_by_assign() {
         }),
         array: huus::updates::ArrayEntry::Array(
             huus::updates::Array::Push(huus::values::PushValue::Value(Doc1Value {
-                integer: Some(2),
-                string: Some("def".to_string()),
+                integer: 2.into(),
+                string: "def".to_string().into(),
             })),
             huus::updates::Operator::None,
         ),
@@ -408,7 +411,7 @@ fn test_update_contents_by_assign() {
         }),
         array: huus::updates::ArrayEntry::Array(
             huus::updates::Array::Push(
-                Doc1Value { integer: Some(2), string: Some("def".to_string()) }.into(),
+                Doc1Value { integer: 2.into(), string: "def".to_string().into() }.into(),
             ),
             huus::updates::Operator::None,
         ),

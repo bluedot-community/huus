@@ -23,7 +23,7 @@ impl huus::conversions::FromDoc for {{ data_name }} {
                 {{ member.rust_name }}:
                 {% if member.is_optional %}
                     match doc.{{ member.from_doc_getter() }}("{{ member.db_name }}") {
-                        Ok(value) => Some({ {{ member.conversion() }} }),
+                        Ok(value) => Some({ {{ member.to_conversion() }} }),
                         Err(bson::ordered::ValueAccessError::NotPresent) => None,
                         Err(bson::ordered::ValueAccessError::UnexpectedType) => {
                             return Err(huus::errors::ConversionError::wrong_type(
@@ -33,7 +33,7 @@ impl huus::conversions::FromDoc for {{ data_name }} {
                     },
                 {% else %}
                     match doc.{{ member.from_doc_getter() }}("{{ member.db_name }}") {
-                        Ok(value) => { {{ member.conversion() }} }
+                        Ok(value) => { {{ member.to_conversion() }} }
                         Err(bson::ordered::ValueAccessError::NotPresent) => {
                             return Err(huus::errors::ConversionError::missing_key(
                                 "{{ member.db_name }}".to_string()
@@ -115,7 +115,7 @@ impl Default for {{ filter_name }} {
 #[derive(Clone, Debug)]
 pub struct {{ value_name }} {
     {% for member in spec.members %}
-        pub {{ member.rust_name }}: Option<{{ member.to_value() }}>,
+        pub {{ member.rust_name }}: {{ member.to_value() }},
     {% endfor %}
 }
 
@@ -124,8 +124,8 @@ impl huus::values::BuildValue for {{ value_name }} {
         use huus::conversions::HuusIntoBson;
         let mut value = huus::values::ObjectValue::empty();
         {% for member in spec.members %}
-            if let Some(data) = self.{{ member.rust_name }} {
-                value.insert("{{ member.db_name }}".to_string(), data.build_value().into_bson());
+            if let Some(v) = self.{{ member.rust_name }}.build_value() {
+                value.insert("{{ member.db_name }}".to_string(), v.into_bson());
             }
         {% endfor %}
         value.build_value()
@@ -136,7 +136,7 @@ impl Default for {{ value_name }} {
     fn default() -> Self {
         Self {
             {% for member in spec.members %}
-                {{ member.rust_name }}: None,
+                {{ member.rust_name}}: <{{ member.to_value() }}>::default(),
             {% endfor %}
         }
     }
