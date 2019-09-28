@@ -35,9 +35,17 @@ impl huus::conversions::FromDoc for {{ data_name }} {
                     match doc.{{ member.from_doc_getter() }}("{{ member.db_name }}") {
                         Ok(value) => { {{ member.to_conversion() }} }
                         Err(bson::ordered::ValueAccessError::NotPresent) => {
-                            return Err(huus::errors::ConversionError::missing_key(
-                                "{{ member.db_name }}".to_string()
-                            ))
+                            {% match member.to_default() %}
+                                {% when Some with (default) %}
+                                    {# default #}
+                                    return Err(huus::errors::ConversionError::missing_key(
+                                        "{{ member.db_name }}".to_string()
+                                    ))
+                                {% when None %}
+                                    return Err(huus::errors::ConversionError::missing_key(
+                                        "{{ member.db_name }}".to_string()
+                                    ))
+                            {% endmatch %}
                         }
                         Err(bson::ordered::ValueAccessError::UnexpectedType) => {
                             return Err(huus::errors::ConversionError::wrong_type(

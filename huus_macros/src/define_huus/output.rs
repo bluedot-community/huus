@@ -280,6 +280,16 @@ impl Member {
             Container::Plain => self.variant.to_conversion(),
         }
     }
+
+    pub fn to_default(&self) -> Option<&str> {
+        match self.container {
+            Container::Array => Some("Vec::new()"),
+            Container::HashMap(_) => Some("std::collections::HashMap::new()"),
+            Container::BTreeMap(_) => Some("std::collections::BTreeMap::new()"),
+            Container::Plain => None,
+        }
+
+    }
 }
 
 // -------------------------------------------------------------------------------------------------

@@ -48,7 +48,7 @@ huus_macros::define_huus! {
 #[test]
 fn test_data_contents() {
     use bson::{bson, doc};
-    use huus::conversions::IntoDoc;
+    use huus::conversions::{IntoDoc, HuusFromBson};
 
     let object_id = huus::types::ObjectId::new().unwrap();
     let date = chrono::Utc::now();
@@ -102,7 +102,8 @@ fn test_data_contents() {
         },
         "bson": { "a": 1, "b": 2 },
     };
-    assert_eq!(data.into_doc(), expected);
+    assert_eq!(data.clone().into_doc(), expected);
+    assert_eq!(data, Doc3Data::huus_from_bson(bson::Bson::Document(expected)).unwrap());
 }
 
 #[test]
