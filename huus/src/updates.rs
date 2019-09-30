@@ -113,6 +113,12 @@ where
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+pub trait DateUpdate {
+    fn current_date(&mut self);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 pub trait FieldUpdate<V>
 where
     V: BuildValue,
@@ -740,6 +746,12 @@ pub enum DateEntry {
     CurrentDate,
     Field(Field<types::Date>),
     Empty,
+}
+
+impl DateUpdate for DateEntry {
+    fn current_date(&mut self) {
+        *self = DateEntry::CurrentDate
+    }
 }
 
 impl FieldUpdate<types::Date> for DateEntry {

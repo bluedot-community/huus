@@ -48,7 +48,7 @@ huus_macros::define_huus! {
 #[test]
 fn test_data_contents() {
     use bson::{bson, doc};
-    use huus::conversions::{IntoDoc, HuusFromBson};
+    use huus::conversions::{HuusFromBson, IntoDoc};
 
     let object_id = huus::types::ObjectId::new().unwrap();
     let date = chrono::Utc::now();

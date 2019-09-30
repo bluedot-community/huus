@@ -288,7 +288,6 @@ impl Member {
             Container::BTreeMap(_) => Some("std::collections::BTreeMap::new()"),
             Container::Plain => None,
         }
-
     }
 }
 
