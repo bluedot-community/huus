@@ -3,7 +3,6 @@
 
 //! Tests of `conversions` module.
 
-#[macro_use]
 extern crate maplit;
 
 use std::collections::{BTreeMap, HashMap};
