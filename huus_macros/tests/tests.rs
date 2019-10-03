@@ -3,7 +3,6 @@
 
 //! Tests for `huus_macros` crate.
 
-#[macro_use]
 extern crate maplit;
 
 use huus::models::prelude::*;

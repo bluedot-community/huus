@@ -186,8 +186,21 @@ impl<V> std::convert::From<V> for Entry<V>
 where
     V: BuildValue,
 {
-    fn from(values: V) -> Entry<V> {
-        Entry::Value(values)
+    fn from(value: V) -> Entry<V> {
+        Entry::Value(value)
+    }
+}
+
+impl<V> std::convert::From<Option<V>> for Entry<V>
+where
+    V: BuildValue,
+{
+    fn from(value: Option<V>) -> Entry<V> {
+        if let Some(value) = value {
+            Entry::Value(value)
+        } else {
+            Entry::Empty
+        }
     }
 }
 
