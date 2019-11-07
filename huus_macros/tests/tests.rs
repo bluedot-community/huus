@@ -479,7 +479,9 @@ fn test_update_contents_by_assign() {
 fn test_update_contents_by_modification() {
     use bson::{bson, doc};
     use huus::updates::Operator;
-    use huus::updates::{ArrayUpdate, BuildUpdate, FieldUpdate, NumericalUpdate, ObjectUpdate};
+    use huus::updates::{
+        ArrayUpdate, BuildUpdate, FieldUpdate, IndexedUpdate, NumericalUpdate, ObjectUpdate,
+    };
 
     let update = Doc3Update::default();
     let expected = doc! {};
@@ -490,13 +492,15 @@ fn test_update_contents_by_modification() {
     update1.string = "abc".into();
 
     let mut update = Doc3Update::default();
-    update.data.dot(update1);
+    update.data.dot(update1.clone());
     update.boolean.set(true);
     update.integers.push(4.into(), Operator::First);
+    update.array.at(6, update1);
 
     let expected = doc! {
         "data.str": "abc",
-        "$max": { "data.int": 40i32 },
+        "array.6.str": "abc",
+        "$max": { "array.6.int": 40, "data.int": 40i32 },
         "$set": { "boolean": true },
         "$push": { "integers.$": 4i64 },
     };

@@ -168,6 +168,15 @@ impl Variant {
         }
     }
 
+    pub fn to_short_update(&self) -> String {
+        match self {
+            Variant::Field(field) => field.to_update().to_string(),
+            Variant::Struct(name) => name.to_update(),
+            Variant::Enum(name) => name.to_update(),
+            Variant::Union(name) => name.to_update(),
+        }
+    }
+
     pub fn from_doc_getter(&self) -> &'static str {
         match self {
             Variant::Field(field) => field.from_doc_getter(),
@@ -246,8 +255,9 @@ impl Member {
     fn to_update(&self) -> String {
         match &self.container {
             Container::Array => {
-                let variant = self.variant.to_value();
-                format!("huus::updates::ArrayEntry<{}>", variant)
+                let update = self.variant.to_short_update();
+                let value = self.variant.to_value();
+                format!("huus::updates::ArrayEntry<{}, {}>", update, value)
             }
             Container::BTreeMap(key_variant) => {
                 let key = key_variant.to_data();

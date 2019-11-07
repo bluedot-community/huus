@@ -45,7 +45,7 @@ impl BuildInnerUpdate for DataUpdate1 {
 #[derive(Clone)]
 struct DataUpdate2 {
     data: updates::ObjectEntry<DataUpdate1, DataValue1>,
-    array: updates::ArrayEntry<i32>,
+    array: updates::ArrayEntry<updates::I32Entry, i32>,
 }
 
 impl BuildUpdate for DataUpdate2 {

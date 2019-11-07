@@ -68,6 +68,15 @@ where
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+pub trait IndexedUpdate<U>
+where
+    U: BuildInnerUpdate,
+{
+    fn at(&mut self, index: usize, update: U);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 pub trait NumericalUpdate<V>
 where
     V: BuildValue,
@@ -569,18 +578,21 @@ where
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #[derive(Clone, Debug)]
-pub enum ArrayEntry<V>
+pub enum ArrayEntry<U, V>
 where
+    U: BuildInnerUpdate,
     V: BuildValue,
 {
     Array(Array<V>, Operator),
+    Indexed(usize, U),
     Numerical(Numerical<V>),
     Element(Element<V>, Operator),
     Empty,
 }
 
-impl<V> ArrayUpdate<V> for ArrayEntry<V>
+impl<U, V> ArrayUpdate<V> for ArrayEntry<U, V>
 where
+    U: BuildInnerUpdate,
     V: BuildValue,
 {
     fn add_to_set(&mut self, value: values::PushValue<V>, operator: Operator) {
@@ -604,8 +616,19 @@ where
     }
 }
 
-impl<V> ElementUpdate<V> for ArrayEntry<V>
+impl<U, V> IndexedUpdate<U> for ArrayEntry<U, V>
 where
+    U: BuildInnerUpdate,
+    V: BuildValue,
+{
+    fn at(&mut self, index: usize, update: U) {
+        *self = ArrayEntry::Indexed(index, update);
+    }
+}
+
+impl<U, V> ElementUpdate<V> for ArrayEntry<U, V>
+where
+    U: BuildInnerUpdate,
     V: BuildValue,
 {
     fn set(&mut self, value: V, operator: Operator) {
@@ -613,14 +636,18 @@ where
     }
 }
 
-impl<V> BuildInnerUpdate for ArrayEntry<V>
+impl<U, V> BuildInnerUpdate for ArrayEntry<U, V>
 where
+    U: BuildInnerUpdate,
     V: BuildValue,
 {
     fn build_update(self, field: String) -> Update {
         match self {
             ArrayEntry::Array(operation, operator) => {
                 operation.build_update(field + operator.to_string())
+            }
+            ArrayEntry::Indexed(index, operation) => {
+                operation.build_update(format!("{}.{}", field, index))
             }
             ArrayEntry::Numerical(operation) => operation.build_update(field),
             ArrayEntry::Element(operation, operator) => {
@@ -631,8 +658,9 @@ where
     }
 }
 
-impl<V> Default for ArrayEntry<V>
+impl<U, V> Default for ArrayEntry<U, V>
 where
+    U: BuildInnerUpdate,
     V: BuildValue,
 {
     fn default() -> Self {

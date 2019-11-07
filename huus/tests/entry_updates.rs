@@ -142,20 +142,24 @@ fn test_string_entry_update() {
 
 #[test]
 fn test_array_entry_update() {
-    let entry = ArrayEntry::Array::<i32>(Array::Pop(PopOption::First), Operator::None);
+    let entry = ArrayEntry::Array::<I32Entry, i32>(Array::Pop(PopOption::First), Operator::None);
     let expected = doc! { "$pop": { KEY: -1 } };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 
-    let entry = ArrayEntry::Array::<i32>(Array::Pop(PopOption::Last), Operator::First);
+    let entry = ArrayEntry::Array::<I32Entry, i32>(Array::Pop(PopOption::Last), Operator::First);
     let expected = doc! { "$pop": { KEY.to_string() + ".$": 1 } };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 
-    let entry = ArrayEntry::Element(Element::Set(3.14), Operator::None);
+    let entry = ArrayEntry::Element::<F64Entry, f64>(Element::Set(3.14), Operator::None);
     let expected = doc! { "$set": { KEY: 3.14 } };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 
-    let entry = ArrayEntry::Element(Element::Set(3.14), Operator::First);
+    let entry = ArrayEntry::Element::<F64Entry, f64>(Element::Set(3.14), Operator::First);
     let expected = doc! { "$set": { KEY.to_string() + ".$": 3.14 } };
+    assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
+
+    let entry = ArrayEntry::Indexed::<F64Entry, f64>(3, F64Entry::Value(3.14));
+    let expected = doc! { KEY.to_string() + ".3": 3.14 };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 }
 

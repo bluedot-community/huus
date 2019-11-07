@@ -31,8 +31,8 @@ pub mod prelude {
     pub use crate::filters::{ArrayFilter, ComparisonFilter, ElementFilter, ObjectFilter};
     pub use crate::query::Query;
     pub use crate::updates::{
-        ArrayUpdate, DateUpdate, ElementUpdate, FieldUpdate, NumericalUpdate, ObjectUpdate,
-        Operator,
+        ArrayUpdate, DateUpdate, ElementUpdate, FieldUpdate, IndexedUpdate, NumericalUpdate,
+        ObjectUpdate, Operator,
     };
     pub use crate::values::{PullValue, PushValue};
 }
