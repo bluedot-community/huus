@@ -40,14 +40,7 @@ pub enum {{ value_name }} {
     {% endfor %}
 }
 
-impl huus::values::BuildValue for {{ value_name }} {
-    fn build_value(self) -> huus::values::Value {
-        use huus::conversions::HuusKey;
-        huus::values::Value::new(bson::Bson::String(self.to_str().to_string()))
-    }
-}
-
-impl huus::conversions::HuusKey for {{ value_name }} {
+impl {{ value_name }} {
     fn from_str(string: &str) -> Result<Self, huus::errors::ConversionError> {
         match string {
             {% for choice in spec.choices %}
@@ -62,6 +55,22 @@ impl huus::conversions::HuusKey for {{ value_name }} {
                 Self::{{ choice.rust_name }} => "{{ choice.db_name }}",
             {% endfor %}
         }
+    }
+}
+
+impl huus::values::BuildValue for {{ value_name }} {
+    fn build_value(self) -> huus::values::Value {
+        use huus::conversions::HuusKey;
+        huus::values::Value::new(bson::Bson::String(self.to_str().to_string()))
+    }
+}
+
+impl huus::conversions::HuusKey for {{ value_name }} {
+    fn from_str(string: &str) -> Result<Self, huus::errors::ConversionError> {
+        Self::from_str(string)
+    }
+    fn to_str(&self) -> &'static str {
+        self.to_str()
     }
 }
 

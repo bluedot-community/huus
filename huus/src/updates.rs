@@ -382,6 +382,12 @@ where
     }
 }
 
+impl<K> std::convert::From<K> for EnumEntry<K> where K: HuusKey {
+    fn from(key: K) -> EnumEntry<K> {
+        EnumEntry::Value(key)
+    }
+}
+
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #[derive(Clone, Debug)]

@@ -37,10 +37,7 @@ impl huus::conversions::FromDoc for {{ data_name }} {
                         Err(bson::ordered::ValueAccessError::NotPresent) => {
                             {% match member.to_default() %}
                                 {% when Some with (default) %}
-                                    {# default #}
-                                    return Err(huus::errors::ConversionError::missing_key(
-                                        "{{ member.db_name }}".to_string()
-                                    ))
+                                    {{ default }}
                                 {% when None %}
                                     return Err(huus::errors::ConversionError::missing_key(
                                         "{{ member.db_name }}".to_string()
