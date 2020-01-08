@@ -73,6 +73,7 @@ where
     U: BuildInnerUpdate,
 {
     fn at(&mut self, index: usize, update: U);
+    fn at_selected(&mut self, update: U);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -382,7 +383,10 @@ where
     }
 }
 
-impl<K> std::convert::From<K> for EnumEntry<K> where K: HuusKey {
+impl<K> std::convert::From<K> for EnumEntry<K>
+where
+    K: HuusKey,
+{
     fn from(key: K) -> EnumEntry<K> {
         EnumEntry::Value(key)
     }
@@ -591,6 +595,7 @@ where
 {
     Array(Array<V>, Operator),
     Indexed(usize, U),
+    Selected(U),
     Numerical(Numerical<V>),
     Element(Element<V>, Operator),
     Empty,
@@ -630,6 +635,10 @@ where
     fn at(&mut self, index: usize, update: U) {
         *self = ArrayEntry::Indexed(index, update);
     }
+
+    fn at_selected(&mut self, update: U) {
+        *self = ArrayEntry::Selected(update);
+    }
 }
 
 impl<U, V> ElementUpdate<V> for ArrayEntry<U, V>
@@ -655,6 +664,7 @@ where
             ArrayEntry::Indexed(index, operation) => {
                 operation.build_update(format!("{}.{}", field, index))
             }
+            ArrayEntry::Selected(operation) => operation.build_update(format!("{}.$", field)),
             ArrayEntry::Numerical(operation) => operation.build_update(field),
             ArrayEntry::Element(operation, operator) => {
                 operation.build_update(field + operator.to_string())

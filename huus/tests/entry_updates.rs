@@ -161,6 +161,10 @@ fn test_array_entry_update() {
     let entry = ArrayEntry::Indexed::<F64Entry, f64>(3, F64Entry::Value(3.14));
     let expected = doc! { KEY.to_string() + ".3": 3.14 };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
+
+    let entry = ArrayEntry::Selected::<F64Entry, f64>(F64Entry::Value(3.14));
+    let expected = doc! { KEY.to_string() + ".$": 3.14 };
+    assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 }
 
 #[test]

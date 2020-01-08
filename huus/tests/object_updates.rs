@@ -45,7 +45,7 @@ impl BuildInnerUpdate for DataUpdate1 {
 #[derive(Clone)]
 struct DataUpdate2 {
     data: updates::ObjectEntry<DataUpdate1, DataValue1>,
-    array: updates::ArrayEntry<updates::I32Entry, i32>,
+    array: updates::ArrayEntry<DataUpdate1, DataValue1>,
 }
 
 impl BuildUpdate for DataUpdate2 {
@@ -107,14 +107,49 @@ fn test_object_entry_update_nested_with_value() {
     let object = DataUpdate2 {
         data: updates::ObjectEntry::Value(DataValue1 { int: 2, string: "abc".to_string() }),
         array: updates::ArrayEntry::Array(
-            updates::Array::Pull(values::PullValue::Value(3.into())),
+            updates::Array::Pull(values::PullValue::Value(DataValue1 {
+                int: 3,
+                string: "def".to_string(),
+            })),
             Operator::None,
         ),
     };
     let expected = doc! {
         "data": { "int": 2, "string": "abc" },
-        "$pull": { "array": 3 },
+        "$pull": { "array": { "int": 3, "string": "def" } },
     };
 
     assert_eq!(object.build_update().into_doc(), expected);
+}
+
+#[test]
+fn test_object_entry_update_nested_indexed() {
+    let object1 = DataUpdate2 {
+        data: updates::ObjectEntry::Empty,
+        array: updates::ArrayEntry::Indexed(1, DataUpdate1 {
+            int: updates::I32Entry::Value(2),
+            string: updates::StringEntry::Value("abc".to_string()),
+        }),
+    };
+
+    let object2 = DataUpdate2 {
+        data: updates::ObjectEntry::Empty,
+        array: updates::ArrayEntry::Selected(DataUpdate1 {
+            int: updates::I32Entry::Field(updates::Field::Set(2)),
+            string: updates::StringEntry::Value("abc".to_string()),
+        }),
+    };
+
+    let expected1 = doc! {
+        "array.1.int": 2,
+        "array.1.string": "abc",
+    };
+
+    let expected2 = doc! {
+        "array.$.string": "abc",
+        "$set": { "array.$.int": 2 }
+    };
+
+    assert_eq!(object1.build_update().into_doc(), expected1);
+    assert_eq!(object2.build_update().into_doc(), expected2);
 }
