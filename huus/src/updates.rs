@@ -298,6 +298,24 @@ pub enum StringEntry {
     Empty,
 }
 
+impl FieldUpdate<String> for StringEntry {
+    fn rename(&mut self, new_name: String) {
+        *self = StringEntry::Field(Field::Rename(new_name));
+    }
+
+    fn set(&mut self, value: String) {
+        *self = StringEntry::Field(Field::Set(value));
+    }
+
+    fn set_on_insert(&mut self, value: String) {
+        *self = StringEntry::Field(Field::SetOnInsert(value));
+    }
+
+    fn unset(&mut self) {
+        *self = StringEntry::Field(Field::Unset);
+    }
+}
+
 impl BuildInnerUpdate for StringEntry {
     fn build_update(self, field: String) -> Update {
         match self {
@@ -664,7 +682,9 @@ where
             ArrayEntry::Indexed(index, operation) => {
                 operation.build_update(format!("{}.{}", field, index))
             }
-            ArrayEntry::Selected(operation) => operation.build_update(format!("{}.$", field)),
+            ArrayEntry::Selected(operation) => {
+                operation.build_update(format!("{}.$", field))
+            }
             ArrayEntry::Numerical(operation) => operation.build_update(field),
             ArrayEntry::Element(operation, operator) => {
                 operation.build_update(field + operator.to_string())
