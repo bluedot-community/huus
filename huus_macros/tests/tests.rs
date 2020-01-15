@@ -480,7 +480,7 @@ fn test_update_contents_by_modification() {
     use bson::{bson, doc};
     use huus::updates::Operator;
     use huus::updates::{
-        ArrayUpdate, BuildUpdate, FieldUpdate, IndexedUpdate, NumericalUpdate, ObjectUpdate,
+        ArrayUpdate, BuildUpdate, ElementUpdate, FieldUpdate, NumericalUpdate, ObjectUpdate,
     };
 
     let update = Doc3Update::default();

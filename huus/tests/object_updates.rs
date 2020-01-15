@@ -5,7 +5,7 @@
 
 use bson::{bson, doc};
 
-use huus::updates::{BuildInnerUpdate, BuildUpdate, Operator};
+use huus::updates::{BuildInnerUpdate, BuildUpdate, Element, Operator};
 use huus::{updates, values};
 
 const KEY: &'static str = "xxx";
@@ -126,18 +126,21 @@ fn test_object_entry_update_nested_with_value() {
 fn test_object_entry_update_nested_indexed() {
     let object1 = DataUpdate2 {
         data: updates::ObjectEntry::Empty,
-        array: updates::ArrayEntry::Indexed(1, DataUpdate1 {
-            int: updates::I32Entry::Value(2),
-            string: updates::StringEntry::Value("abc".to_string()),
-        }),
+        array: updates::ArrayEntry::Element(Element::Indexed(
+            1,
+            DataUpdate1 {
+                int: updates::I32Entry::Value(2),
+                string: updates::StringEntry::Value("abc".to_string()),
+            },
+        )),
     };
 
     let object2 = DataUpdate2 {
         data: updates::ObjectEntry::Empty,
-        array: updates::ArrayEntry::Selected(DataUpdate1 {
+        array: updates::ArrayEntry::Element(Element::Selected(DataUpdate1 {
             int: updates::I32Entry::Field(updates::Field::Set(2)),
             string: updates::StringEntry::Value("abc".to_string()),
-        }),
+        })),
     };
 
     let expected1 = doc! {

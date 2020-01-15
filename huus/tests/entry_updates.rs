@@ -150,20 +150,20 @@ fn test_array_entry_update() {
     let expected = doc! { "$pop": { KEY.to_string() + ".$": 1 } };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 
-    let entry = ArrayEntry::Element::<F64Entry, f64>(Element::Set(3.14), Operator::None);
-    let expected = doc! { "$set": { KEY: 3.14 } };
-    assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
-
-    let entry = ArrayEntry::Element::<F64Entry, f64>(Element::Set(3.14), Operator::First);
+    let entry = ArrayEntry::Element::<F64Entry, f64>(Element::Set(3.14));
     let expected = doc! { "$set": { KEY.to_string() + ".$": 3.14 } };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 
-    let entry = ArrayEntry::Indexed::<F64Entry, f64>(3, F64Entry::Value(3.14));
-    let expected = doc! { KEY.to_string() + ".3": 3.14 };
+    let entry = ArrayEntry::Element::<F64Entry, f64>(Element::Indexed(8, F64Entry::Value(3.14)));
+    let expected = doc! { KEY.to_string() + ".8": 3.14 };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 
-    let entry = ArrayEntry::Selected::<F64Entry, f64>(F64Entry::Value(3.14));
+    let entry = ArrayEntry::Element::<F64Entry, f64>(Element::Selected(F64Entry::Value(3.14)));
     let expected = doc! { KEY.to_string() + ".$": 3.14 };
+    assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
+
+    let entry = ArrayEntry::Field::<F64Entry, f64>(Field::Set(vec![3.14, 2.72]));
+    let expected = doc! { "$set": { KEY: [3.14, 2.72] } };
     assert_eq!(entry.build_update(KEY.to_string()).into_doc(), expected);
 }
 

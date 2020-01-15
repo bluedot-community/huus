@@ -68,16 +68,6 @@ where
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-pub trait IndexedUpdate<U>
-where
-    U: BuildInnerUpdate,
-{
-    fn at(&mut self, index: usize, update: U);
-    fn at_selected(&mut self, update: U);
-}
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 pub trait NumericalUpdate<V>
 where
     V: BuildValue,
@@ -172,30 +162,42 @@ where
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-pub trait ElementUpdate<V>
+pub trait ElementUpdate<U, V>
 where
-    V: BuildValue,
+    U: BuildInnerUpdate,
 {
-    fn set(&mut self, value: V, operator: Operator);
+    fn set_element(&mut self, value: V);
+    fn at(&mut self, index: usize, update: U);
+    fn at_selected(&mut self, update: U);
 }
 
 #[derive(Clone, Debug)]
-pub enum Element<V>
+pub enum Element<U, V>
 where
+    U: BuildInnerUpdate,
     V: BuildValue,
 {
     Set(V),
+    Indexed(usize, U),
+    Selected(U),
 }
 
-impl<V> BuildInnerUpdate for Element<V>
+impl<U, V> BuildInnerUpdate for Element<U, V>
 where
+    U: BuildInnerUpdate,
     V: BuildValue,
 {
     fn build_update(self, field: String) -> Update {
         match self {
-            Element::Set(value) => {
-                Update::with_operator(UpdateOperator::Set, field, value.build_value())
+            Element::Set(value) => Update::with_operator(
+                UpdateOperator::Set,
+                format!("{}.$", field),
+                value.build_value(),
+            ),
+            Element::Indexed(index, operation) => {
+                operation.build_update(format!("{}.{}", field, index))
             }
+            Element::Selected(operation) => operation.build_update(format!("{}.$", field)),
         }
     }
 }
@@ -612,10 +614,9 @@ where
     V: BuildValue,
 {
     Array(Array<V>, Operator),
-    Indexed(usize, U),
-    Selected(U),
+    Element(Element<U, V>),
     Numerical(Numerical<V>),
-    Element(Element<V>, Operator),
+    Field(Field<Vec<V>>),
     Empty,
 }
 
@@ -645,27 +646,43 @@ where
     }
 }
 
-impl<U, V> IndexedUpdate<U> for ArrayEntry<U, V>
+impl<U, V> ElementUpdate<U, V> for ArrayEntry<U, V>
 where
     U: BuildInnerUpdate,
     V: BuildValue,
 {
+    fn set_element(&mut self, value: V) {
+        *self = ArrayEntry::Element(Element::Set(value));
+    }
+
     fn at(&mut self, index: usize, update: U) {
-        *self = ArrayEntry::Indexed(index, update);
+        *self = ArrayEntry::Element(Element::Indexed(index, update));
     }
 
     fn at_selected(&mut self, update: U) {
-        *self = ArrayEntry::Selected(update);
+        *self = ArrayEntry::Element(Element::Selected(update));
     }
 }
 
-impl<U, V> ElementUpdate<V> for ArrayEntry<U, V>
+impl<U, V> FieldUpdate<Vec<V>> for ArrayEntry<U, V>
 where
     U: BuildInnerUpdate,
     V: BuildValue,
 {
-    fn set(&mut self, value: V, operator: Operator) {
-        *self = ArrayEntry::Element(Element::Set(value), operator);
+    fn rename(&mut self, new_name: String) {
+        *self = ArrayEntry::Field(Field::Rename(new_name));
+    }
+
+    fn set(&mut self, value: Vec<V>) {
+        *self = ArrayEntry::Field(Field::Set(value));
+    }
+
+    fn set_on_insert(&mut self, value: Vec<V>) {
+        *self = ArrayEntry::Field(Field::SetOnInsert(value));
+    }
+
+    fn unset(&mut self) {
+        *self = ArrayEntry::Field(Field::Unset);
     }
 }
 
@@ -679,16 +696,9 @@ where
             ArrayEntry::Array(operation, operator) => {
                 operation.build_update(field + operator.to_string())
             }
-            ArrayEntry::Indexed(index, operation) => {
-                operation.build_update(format!("{}.{}", field, index))
-            }
-            ArrayEntry::Selected(operation) => {
-                operation.build_update(format!("{}.$", field))
-            }
+            ArrayEntry::Element(operation) => operation.build_update(field),
             ArrayEntry::Numerical(operation) => operation.build_update(field),
-            ArrayEntry::Element(operation, operator) => {
-                operation.build_update(field + operator.to_string())
-            }
+            ArrayEntry::Field(operation) => operation.build_update(field),
             ArrayEntry::Empty => Update::empty(),
         }
     }

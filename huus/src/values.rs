@@ -70,6 +70,17 @@ impl BuildValue for i64 {
     }
 }
 
+impl<V> BuildValue for Vec<V>
+where
+    V: BuildValue,
+{
+    fn build_value(mut self) -> Value {
+        Value::new(bson::Bson::Array(
+            self.drain(..).map(|entry| entry.build_value().into_bson()).collect(),
+        ))
+    }
+}
+
 impl<K, B> BuildValue for BTreeMap<K, B>
 where
     K: HuusKey,
