@@ -5,21 +5,15 @@
 
 use std::str::FromStr;
 
-use crate::parser::{ExpectedTokenTree, Parser};
+use crate::{
+    parser::{ExpectedTokenTree, Parser},
+    definition_spec::{
+        BuiltInType, Container, DefinedType, Entity, Enum, Member, Spec, Struct,
+        Union, Variant, SpecError, UnionChoice, EnumChoice,
+    },
+};
 
 const SPAN: &str = "Span should be present";
-
-#[derive(Clone, PartialEq)]
-pub enum BuiltInType {
-    F64,
-    String,
-    ObjectId,
-    Bool,
-    Date,
-    I32,
-    I64,
-    Bson,
-}
 
 impl BuiltInType {
     pub fn from_name(name: &str) -> Result<Self, ()> {
@@ -32,93 +26,12 @@ impl BuiltInType {
             "i32" => Ok(BuiltInType::I32),
             "i64" => Ok(BuiltInType::I64),
             "Bson" => Ok(BuiltInType::Bson),
-            _ => Err(()),
-        }
-    }
-
-    fn allows_indexing(&self) -> bool {
-        match self {
-            BuiltInType::String => true,
-            _ => false,
+            _ => return Err(()),
         }
     }
 }
 
 #[derive(Clone)]
-pub struct PredefinedType {
-    pub variant: BuiltInType,
-    pub span: proc_macro2::Span,
-}
-
-impl PredefinedType {
-    pub fn from_name(name: &str, span: proc_macro2::Span) -> Result<Self, ()> {
-        match BuiltInType::from_name(name) {
-            Ok(variant) => Ok(PredefinedType { variant, span }),
-            Err(err) => Err(err),
-        }
-    }
-
-    fn allows_indexing(&self) -> bool {
-        self.variant.allows_indexing()
-    }
-}
-
-impl PartialEq<PredefinedType> for PredefinedType {
-    fn eq(&self, other: &PredefinedType) -> bool {
-        self.variant == other.variant
-    }
-}
-
-#[derive(Clone)]
-pub struct DefinedType {
-    pub name: String,
-    pub span: proc_macro2::Span,
-}
-
-impl DefinedType {
-    fn new(name: String, span: proc_macro2::Span) -> Self {
-        Self { name, span }
-    }
-}
-
-impl PartialEq<DefinedType> for DefinedType {
-    fn eq(&self, other: &DefinedType) -> bool {
-        self.name == other.name
-    }
-}
-
-impl PartialEq<str> for DefinedType {
-    fn eq(&self, name: &str) -> bool {
-        self.name == name
-    }
-}
-
-#[derive(Clone, PartialEq)]
-pub enum Variant {
-    Field(PredefinedType),
-    Struct(DefinedType),
-    Enum(DefinedType),
-    Union(DefinedType),
-}
-
-impl Variant {
-    fn allows_indexing(&self) -> bool {
-        match self {
-            Variant::Field(field) => field.allows_indexing(),
-            _ => false,
-        }
-    }
-}
-
-#[derive(Clone, PartialEq)]
-pub enum Container {
-    Array,
-    BTreeMap(Variant),
-    HashMap(Variant),
-    Plain,
-}
-
-#[derive(Clone, PartialEq)]
 pub enum ContainerTemplate {
     Array,
     BTreeMap(String),
@@ -126,59 +39,14 @@ pub enum ContainerTemplate {
     Plain,
 }
 
-pub struct Member {
-    pub rust_name: String,
-    pub rust_name_span: proc_macro2::Span,
-    pub db_name: String,
-    pub db_name_span: proc_macro2::Span,
-    pub variant: Variant,
-    pub variant_span: proc_macro2::Span,
-    pub is_optional: bool,
-    pub is_indexed: bool,
-    pub container: Container,
-}
-
-impl Member {
-    fn validate(&self) -> Result<(), ()> {
-        // Check if the name is allowed
-        const FORBIDDEN_PREFIX: &'static str = "_huus";
-        if self.rust_name.starts_with(FORBIDDEN_PREFIX) {
-            self.rust_name_span
-                .unwrap()
-                .error(format!("Member name cannot start with '{}'", FORBIDDEN_PREFIX))
-                .emit();
-            return Err(());
-        }
-
-        // Check if the database name contains only allowed characters
-        for character in self.db_name.chars() {
-            if !character.is_alphanumeric() && character != '_' {
-                let msg = format!(
-                    "Field name can contain only alphanumerics and underscore, but '{}' was used",
-                    character
-                );
-                self.db_name_span.unwrap().error(msg).emit();
-                return Err(());
-            }
-        }
-
-        // Check if indexing is requested only for types supporting indexing
-        if self.is_indexed && !self.variant.allows_indexing() {
-            self.variant_span.unwrap().error("Indexing not supported for this type").emit();
-        }
-
-        Ok(())
-    }
-}
-
 #[derive(Clone)]
 struct MemberTemplate {
     rust_name: Option<String>,
-    rust_name_span: Option<proc_macro2::Span>,
+    rust_name_span: proc_macro::Span,
     db_name: Option<String>,
-    db_name_span: Option<proc_macro2::Span>,
+    db_name_span: proc_macro::Span,
     variant: Option<String>,
-    variant_span: Option<proc_macro2::Span>,
+    variant_span: proc_macro::Span,
     is_optional: bool,
     is_indexed: bool,
     container: ContainerTemplate,
@@ -188,61 +56,16 @@ impl MemberTemplate {
     pub fn new() -> Self {
         Self {
             rust_name: None,
-            rust_name_span: None,
+            rust_name_span: proc_macro::Span::call_site(),
             db_name: None,
-            db_name_span: None,
+            db_name_span: proc_macro::Span::call_site(),
             variant: None,
-            variant_span: None,
+            variant_span: proc_macro::Span::call_site(),
             is_optional: false,
             is_indexed: false,
             container: ContainerTemplate::Plain,
         }
     }
-}
-
-#[derive(Clone)]
-pub struct EnumChoice {
-    pub rust_name: String,
-    pub rust_name_span: proc_macro2::Span,
-    pub db_name: String,
-    pub db_name_span: proc_macro2::Span,
-}
-
-impl EnumChoice {
-    fn new(
-        rust_name: String,
-        rust_name_span: proc_macro2::Span,
-        db_name: String,
-        db_name_span: proc_macro2::Span,
-    ) -> Self {
-        Self { rust_name, rust_name_span, db_name: db_name, db_name_span }
-    }
-}
-
-#[derive(Clone)]
-pub struct UnionChoice {
-    pub rust_name: String,
-    pub rust_name_span: proc_macro2::Span,
-    pub db_name: String,
-    pub variant: DefinedType,
-}
-
-impl UnionChoice {
-    fn new(
-        rust_name: String,
-        rust_name_span: proc_macro2::Span,
-        db_name: String,
-        variant: DefinedType,
-    ) -> Self {
-        Self { rust_name, rust_name_span, db_name, variant }
-    }
-}
-
-pub struct Struct {
-    pub struct_name: DefinedType,
-    pub struct_name_span: proc_macro2::Span,
-    pub collection_name: Option<String>,
-    pub members: Vec<Member>,
 }
 
 #[derive(Clone)]
@@ -253,82 +76,13 @@ struct StructTemplate {
     pub members: Vec<MemberTemplate>,
 }
 
-#[derive(Clone)]
-pub struct Enum {
-    pub name: DefinedType,
-    pub choices: Vec<EnumChoice>,
-}
-
-impl Enum {
-    fn new(name: DefinedType, choices: Vec<EnumChoice>) -> Self {
-        Self { name, choices }
-    }
-
-    pub fn to_db_names(&self) -> Vec<String> {
-        let mut result = Vec::with_capacity(self.choices.len());
-        for choice in self.choices.iter() {
-            result.push(choice.db_name.clone());
-        }
-        result
-    }
-}
-
-#[derive(Clone)]
-pub struct Union {
-    pub name: DefinedType,
-    pub choices: Vec<UnionChoice>,
-}
-
-impl Union {
-    fn new(name: DefinedType, choices: Vec<UnionChoice>) -> Self {
-        Self { name, choices }
-    }
-}
-
-pub enum Entity {
-    Struct(Struct),
-    Enum(Enum),
-    Union(Union),
-}
-
 enum EntityTemplate {
     Struct(StructTemplate),
     Enum(Enum),
     Union(Union),
 }
 
-pub struct Spec {
-    pub entities: Vec<Entity>,
-}
-
-impl Spec {
-    fn new() -> Self {
-        Self { entities: Vec::new() }
-    }
-
-    pub fn find_entity(&self, name: &str) -> Option<&Entity> {
-        for entity in self.entities.iter() {
-            match entity {
-                Entity::Struct(struct_spec) => {
-                    if struct_spec.struct_name == *name {
-                        return Some(entity);
-                    }
-                }
-                Entity::Enum(enum_spec) => {
-                    if enum_spec.name == *name {
-                        return Some(entity);
-                    }
-                }
-                Entity::Union(union_spec) => {
-                    if union_spec.name == *name {
-                        return Some(entity);
-                    }
-                }
-            }
-        }
-        None
-    }
-}
+// -------------------------------------------------------------------------------------------------
 
 struct SpecBuilder {
     pub entities: Vec<EntityTemplate>,
@@ -362,18 +116,17 @@ impl SpecBuilder {
         None
     }
 
-    fn make_variant(&self, string: String, span: proc_macro2::Span) -> Result<Variant, ()> {
-        if let Ok(field) = PredefinedType::from_name(&string, span.clone()) {
+    fn make_variant(&self, string: String, span: proc_macro::Span) -> Result<Variant, ()> {
+        if let Ok(field) = BuiltInType::from_name(&string) {
             Ok(Variant::Field(field))
         } else if let Some(entity) = self.find_entity(&string) {
             match entity {
-                EntityTemplate::Struct(..) => Ok(Variant::Struct(DefinedType::new(string, span))),
-                EntityTemplate::Enum(..) => Ok(Variant::Enum(DefinedType::new(string, span))),
-                EntityTemplate::Union(..) => Ok(Variant::Union(DefinedType::new(string, span))),
+                EntityTemplate::Struct(..) => Ok(Variant::Struct(DefinedType::new(string))),
+                EntityTemplate::Enum(..) => Ok(Variant::Enum(DefinedType::new(string))),
+                EntityTemplate::Union(..) => Ok(Variant::Union(DefinedType::new(string))),
             }
         } else {
-            span.unwrap()
-                .error(format!("'{}' is neither predefined nor defined in this scope", string))
+            span.error(format!("'{}' is neither predefined nor defined in this scope", string))
                 .emit();
             Err(())
         }
@@ -382,7 +135,7 @@ impl SpecBuilder {
     fn make_container(
         &self,
         template: ContainerTemplate,
-        span: proc_macro2::Span,
+        span: proc_macro::Span,
     ) -> Result<Container, ()> {
         Ok(match template {
             ContainerTemplate::Array => Container::Array,
@@ -399,31 +152,28 @@ impl SpecBuilder {
     fn build_struct(&self, struct_template: StructTemplate) -> Result<Struct, ()> {
         let mut members = Vec::with_capacity(struct_template.members.len());
         for template in struct_template.members {
-            let variant_span = template.variant_span.expect("Member type span incomplete");
-            let member = Member {
-                rust_name: template.rust_name.expect("Member name incomplete"),
-                rust_name_span: template.rust_name_span.expect("Member name span incomplete"),
-                db_name: template.db_name.expect("Database entry name incomplete"),
-                db_name_span: template.db_name_span.expect("Database entry name span incomplete"),
-                variant: self.make_variant(
+            let member = Member::new(
+                template.rust_name.expect("Member name incomplete"),
+                template.db_name.expect("Database entry name incomplete"),
+                self.make_variant(
                     template.variant.expect("Member type incomplete"),
-                    variant_span.clone(),
+                    template.variant_span.clone(),
                 )?,
-                variant_span: variant_span,
-                is_optional: template.is_optional,
-                is_indexed: template.is_indexed,
-                container: self.make_container(template.container, variant_span.clone())?,
-            };
-            member.validate()?;
-            members.push(member);
+                self.make_container(template.container, template.variant_span.clone())?,
+                template.is_optional,
+                template.is_indexed,
+            );
+
+            match member {
+                Ok(member) => members.push(member),
+                Err(SpecError::RustName(msg)) => template.rust_name_span.error(msg).emit(),
+                Err(SpecError::DbName(msg)) => template.db_name_span.error(msg).emit(),
+                Err(SpecError::Type(msg)) => template.variant_span.error(msg).emit(),
+            }
         }
 
         Ok(Struct {
-            struct_name: DefinedType::new(
-                struct_template.struct_name,
-                struct_template.struct_name_span,
-            ),
-            struct_name_span: struct_template.struct_name_span,
+            struct_name: DefinedType::new(struct_template.struct_name),
             collection_name: struct_template.collection_name,
             members: members,
         })
@@ -436,12 +186,8 @@ impl SpecBuilder {
                     match builtin_type {
                         BuiltInType::String => Ok(()),
                         _ => {
-                            member
-                                .variant_span
-                                .expect("Incomplete member type")
-                                .unwrap()
-                                .error("Only 'String' can be used as a key".to_string())
-                                .emit();
+                            let msg = "Only 'String' can be used as a key".to_string();
+                            member.variant_span.error(msg).emit();
                             Err(())
                         }
                     }
@@ -450,22 +196,12 @@ impl SpecBuilder {
                         Some(EntityTemplate::Enum(..)) => Ok(()),
                         Some(_) => {
                             let msg = format!("Type '{}' is not an huus enum", string);
-                            member
-                                .variant_span
-                                .expect("Incomplete member type")
-                                .unwrap()
-                                .error(msg)
-                                .emit();
+                            member.variant_span.error(msg).emit();
                             Err(())
                         }
                         None => {
                             let msg = format!("Type '{}' is neither not (pre)defined", string);
-                            member
-                                .variant_span
-                                .expect("Incomplete member type")
-                                .unwrap()
-                                .error(msg)
-                                .emit();
+                            member.variant_span.error(msg).emit();
                             Err(())
                         }
                     }
@@ -499,9 +235,10 @@ impl SpecBuilder {
                 EntityTemplate::Struct(struct_template) => {
                     Entity::Struct(self.build_struct(struct_template.clone())?)
                 }
-                EntityTemplate::Enum(enum_spec) => Entity::Enum(enum_spec.clone()),
+                EntityTemplate::Enum(enum_spec) => {
+                    Entity::Enum(enum_spec.clone())
+                }
                 EntityTemplate::Union(union_spec) => {
-                    // TODO: Validate if the union type is valid.
                     Entity::Union(union_spec.clone())
                 }
             });
@@ -553,20 +290,20 @@ fn parse_members(group: proc_macro::Group) -> Result<Vec<MemberTemplate>, ()> {
         let mut member = MemberTemplate::new();
         let ident = parser.expect_ident(None)?;
         member.rust_name = Some(ident.to_string());
-        member.rust_name_span = Some(ident.span().into());
+        member.rust_name_span = ident.span().into();
         if parser.is_ident() {
             let _ = parser.expect_ident(Some("as"))?;
             member.db_name = Some(parser.expect_string()?);
-            member.db_name_span = Some(parser.span().expect(SPAN).into());
+            member.db_name_span = parser.span().expect(SPAN).into();
         } else {
             member.db_name = Some(ident.to_string());
-            member.db_name_span = Some(ident.span().into());
+            member.db_name_span = ident.span().into();
         };
         let _ = parser.expect_punctuation(Some(':'))?;
 
         // Parse type
         let ident = parser.expect_ident(None)?;
-        member.variant_span = Some(ident.span().into());
+        member.variant_span = ident.span().into();
         let ident_name = ident.to_string();
         match ident_name.as_ref() {
             ARRAY => {
@@ -614,7 +351,7 @@ fn parse_enum_or_union(parser: &mut Parser) -> Result<EntityTemplate, ()> {
     let name_ident = parser.expect_ident(None)?;
     let choices = parse_choices(parser.expect_group()?)?;
 
-    let name = DefinedType::new(name_ident.to_string(), name_ident.span().into());
+    let name = DefinedType::new(name_ident.to_string());
     if (choices.enum_choices.len() != 0) && (choices.union_choices.len() == 0) {
         return Ok(EntityTemplate::Enum(Enum::new(name, choices.enum_choices)));
     } else if (choices.enum_choices.len() == 0) && (choices.union_choices.len() != 0) {
@@ -644,22 +381,17 @@ fn parse_choices(group: proc_macro::Group) -> Result<ParseChoicesResult, ()> {
                 return Err(());
             }
         };
-        let rust_name_span = parser.span().expect(SPAN).into();
         let _ = parser.expect_ident(Some("as"));
         let db_name = parser.expect_string()?;
-        let db_name_span = parser.span().expect(SPAN).into();
 
         let mut next = parser.expect();
         if next == ExpectedTokenTree::Punct(':') {
-            let variant = DefinedType::new(
-                parser.expect_ident(None)?.to_string(),
-                parser.span().expect(SPAN).into(),
-            );
-            next = parser.expect();
-            let choice = UnionChoice::new(rust_name, rust_name_span, db_name, variant);
+            let variant = DefinedType::new(parser.expect_ident(None)?.to_string());
+            let choice = UnionChoice::new(rust_name, db_name, variant);
             result.union_choices.push(choice);
+            next = parser.expect();
         } else {
-            let choice = EnumChoice::new(rust_name, rust_name_span, db_name, db_name_span);
+            let choice = EnumChoice::new(rust_name, db_name);
             result.enum_choices.push(choice);
         };
 

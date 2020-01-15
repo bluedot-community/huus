@@ -10,13 +10,15 @@
 extern crate proc_macro;
 extern crate proc_macro2;
 
-mod define_huus;
+mod definition_spec;
+mod definition_input;
+mod definition_output;
 mod parser;
 
 #[proc_macro]
 pub fn define_huus(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    if let Ok(spec) = define_huus::input::parse_instruction_stream(stream) {
-        define_huus::output::make_output(spec)
+    if let Ok(spec) = definition_input::parse_instruction_stream(stream) {
+        definition_output::make_output(spec)
     } else {
         // No need to emit error here - it was already emitted
         proc_macro::TokenStream::new()
@@ -25,8 +27,8 @@ pub fn define_huus(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 #[proc_macro]
 pub fn define_from(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    if let Ok(spec) = define_huus::input::parse_file_stream(stream) {
-        define_huus::output::make_output(spec)
+    if let Ok(spec) = definition_input::parse_file_stream(stream) {
+        definition_output::make_output(spec)
     } else {
         // No need to emit error here - it was already emitted
         proc_macro::TokenStream::new()

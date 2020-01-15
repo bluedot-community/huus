@@ -7,16 +7,16 @@ use std::collections::HashMap;
 
 use askama::Template;
 
-use super::input::{
-    BuiltInType, Container, DefinedType, Entity, Enum, Member, PredefinedType, Spec, Struct, Union,
+use crate::definition_spec::{
+    BuiltInType, Container, DefinedType, Entity, Enum, Member, Spec, Struct, Union,
     Variant,
 };
 
 // -------------------------------------------------------------------------------------------------
 
-impl PredefinedType {
+impl BuiltInType {
     pub fn to_data(&self) -> &'static str {
-        match self.variant {
+        match self {
             BuiltInType::F64 => "f64",
             BuiltInType::String => "String",
             BuiltInType::ObjectId => "huus::types::ObjectId",
@@ -29,7 +29,7 @@ impl PredefinedType {
     }
 
     pub fn to_filter(&self) -> &'static str {
-        match self.variant {
+        match self {
             BuiltInType::F64 => "huus::filters::F64Entry",
             BuiltInType::String => "huus::filters::StringEntry",
             BuiltInType::ObjectId => "huus::filters::ObjectIdEntry",
@@ -42,7 +42,7 @@ impl PredefinedType {
     }
 
     pub fn to_value(&self) -> &'static str {
-        match self.variant {
+        match self {
             BuiltInType::F64 => "f64",
             BuiltInType::String => "String",
             BuiltInType::ObjectId => "huus::types::ObjectId",
@@ -55,7 +55,7 @@ impl PredefinedType {
     }
 
     pub fn to_update(&self) -> &'static str {
-        match self.variant {
+        match self {
             BuiltInType::F64 => "huus::updates::F64Entry",
             BuiltInType::String => "huus::updates::StringEntry",
             BuiltInType::ObjectId => "huus::updates::ObjectIdEntry",
@@ -68,7 +68,7 @@ impl PredefinedType {
     }
 
     pub fn from_doc_getter(&self) -> &'static str {
-        match self.variant {
+        match self {
             BuiltInType::F64 => "get_f64",
             BuiltInType::String => "get_str",
             BuiltInType::ObjectId => "get_object_id",
@@ -81,7 +81,7 @@ impl PredefinedType {
     }
 
     pub fn to_conversion(&self) -> &'static str {
-        let output = match self.variant {
+        let output = match self {
             BuiltInType::F64 => "value",
             BuiltInType::String => "value.to_string()",
             BuiltInType::ObjectId => "value.clone()",
@@ -298,6 +298,16 @@ impl Member {
             Container::BTreeMap(_) => Some("std::collections::BTreeMap::new()"),
             Container::Plain => None,
         }
+    }
+}
+
+impl Enum {
+    pub fn to_db_names(&self) -> Vec<String> {
+        let mut result = Vec::with_capacity(self.choices.len());
+        for choice in self.choices.iter() {
+            result.push(choice.db_name.clone());
+        }
+        result
     }
 }
 
