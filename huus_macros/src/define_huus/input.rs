@@ -3,6 +3,8 @@
 
 //! Parsing the token stream of `define_huus` macro.
 
+use std::str::FromStr;
+
 use crate::parser::{ExpectedTokenTree, Parser};
 
 const SPAN: &str = "Span should be present";
@@ -519,42 +521,6 @@ impl ParseChoicesResult {
     }
 }
 
-pub fn parse(stream: proc_macro::TokenStream) -> Result<Spec, ()> {
-    let mut parser = Parser::new(stream);
-    let mut spec = SpecBuilder::new();
-    loop {
-        match parser.expect() {
-            ExpectedTokenTree::Ident(name) => {
-                if name != "pub" {
-                    parser.span().expect(SPAN).error("Expected ident 'pub'").emit();
-                    return Err(());
-                }
-            }
-            ExpectedTokenTree::EndOfStream => break,
-            _ => {
-                parser.span().expect(SPAN).error("Expected an ident or end of stream").emit();
-                return Err(());
-            }
-        };
-
-        let ident = parser.expect_ident(None)?;
-        match ident.to_string().as_ref() {
-            "struct" => spec.entities.push(parse_struct(&mut parser)?),
-            "enum" => spec.entities.push(parse_enum_or_union(&mut parser)?),
-            _ => {
-                ident.span().error("Expected 'struct' or 'enum'").emit();
-                return Err(());
-            }
-        }
-    }
-    if spec.entities.len() > 0 {
-        Ok(spec.build()?)
-    } else {
-        proc_macro::Span::def_site().error("The macro seems to be empty").emit();
-        Err(())
-    }
-}
-
 fn parse_struct(parser: &mut Parser) -> Result<EntityTemplate, ()> {
     let name_ident = parser.expect_ident(None)?;
     let collection_name = if parser.is_ident() {
@@ -708,3 +674,61 @@ fn parse_choices(group: proc_macro::Group) -> Result<ParseChoicesResult, ()> {
     }
     Ok(result)
 }
+
+pub fn parse_file_stream(stream: proc_macro::TokenStream) -> Result<Spec, ()> {
+    let mut parser = Parser::new(stream);
+    let name = parser.expect_string()?;
+    parser.expect_eof()?;
+    parse_file(name)
+}
+
+pub fn parse_file(name: String) -> Result<Spec, ()> {
+    let mut path = std::path::PathBuf::new();
+    path.push(std::env::var("CARGO_MANIFEST_DIR").expect("Read CARGO_MANIFEST_DIR variable"));
+    path.push("huus");
+    path.push(name);
+    path.set_extension("huus.rs");
+
+    let contents = std::fs::read_to_string(path.clone())
+        .expect(&format!("Read file: {:?}", path));
+
+    let stream = proc_macro::TokenStream::from_str(&contents).expect("Create token stream");
+    parse_instruction_stream(stream)
+}
+
+pub fn parse_instruction_stream(stream: proc_macro::TokenStream) -> Result<Spec, ()> {
+    let mut parser = Parser::new(stream);
+    let mut spec = SpecBuilder::new();
+    loop {
+        match parser.expect() {
+            ExpectedTokenTree::Ident(name) => {
+                if name != "pub" {
+                    parser.span().expect(SPAN).error("Expected ident 'pub'").emit();
+                    return Err(());
+                }
+            }
+            ExpectedTokenTree::EndOfStream => break,
+            _ => {
+                parser.span().expect(SPAN).error("Expected an ident or end of stream").emit();
+                return Err(());
+            }
+        };
+
+        let ident = parser.expect_ident(None)?;
+        match ident.to_string().as_ref() {
+            "struct" => spec.entities.push(parse_struct(&mut parser)?),
+            "enum" => spec.entities.push(parse_enum_or_union(&mut parser)?),
+            _ => {
+                ident.span().error("Expected 'struct' or 'enum'").emit();
+                return Err(());
+            }
+        }
+    }
+    if spec.entities.len() > 0 {
+        Ok(spec.build()?)
+    } else {
+        proc_macro::Span::def_site().error("The macro seems to be empty").emit();
+        Err(())
+    }
+}
+

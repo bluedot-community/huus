@@ -198,6 +198,33 @@ impl Parser {
         result
     }
 
+    pub fn expect_eof(&mut self) -> Result<(), ()> {
+        self.start();
+        let result = match &self.current {
+            Some(proc_macro::TokenTree::Group(item)) => {
+                item.span().error("Expected end of the macto, found a group").emit();
+                Err(())
+            }
+            Some(proc_macro::TokenTree::Ident(item)) => {
+                item.span().error("Expected end of the macro, found an ident").emit();
+                Err(())
+            }
+            Some(proc_macro::TokenTree::Punct(item)) => {
+                item.span().error("Expected end of the macro, found a punctuation").emit();
+                Err(())
+            }
+            Some(proc_macro::TokenTree::Literal(item)) => {
+                item.span().error("Expected end of the macto, found a literal").emit();
+                Err(())
+            }
+            None => {
+                Ok(())
+            }
+        };
+        self.finish();
+        result
+    }
+
     pub fn expect(&mut self) -> ExpectedTokenTree {
         self.start();
         let result = match &self.current {

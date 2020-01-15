@@ -15,10 +15,21 @@ mod parser;
 
 #[proc_macro]
 pub fn define_huus(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    if let Ok(spec) = define_huus::input::parse(stream) {
+    if let Ok(spec) = define_huus::input::parse_instruction_stream(stream) {
         define_huus::output::make_output(spec)
     } else {
         // No need to emit error here - it was already emitted
         proc_macro::TokenStream::new()
     }
 }
+
+#[proc_macro]
+pub fn define_from(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    if let Ok(spec) = define_huus::input::parse_file_stream(stream) {
+        define_huus::output::make_output(spec)
+    } else {
+        // No need to emit error here - it was already emitted
+        proc_macro::TokenStream::new()
+    }
+}
+
