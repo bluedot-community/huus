@@ -3,30 +3,44 @@
 
 //! Parser for macro token tree.
 
-mod utils {
-    pub fn strip_quotes(literal: &proc_macro::Literal) -> Result<String, ()> {
-        let mut string = literal.to_string();
-        if (string.pop() == Some('"'))
-            && !string.is_empty()
-            && (string.remove(0) == '"')
-            && !string.is_empty()
-        {
-            Ok(string)
-        } else {
-            literal.span().error("Expected non-empty literal string").emit();
-            Err(())
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum ExpectedTokenTree {
-    Group,
+    Group(proc_macro::Group),
     Ident(String),
     Punct(char),
     String(String),
+    Value(String),
     EndOfStream,
-    Error,
+}
+
+impl ExpectedTokenTree {
+    pub fn from_token_tree(token_tree: &Option<proc_macro::TokenTree>) -> Self {
+        match token_tree {
+            Some(proc_macro::TokenTree::Group(group)) => ExpectedTokenTree::Group(group.clone()),
+            Some(proc_macro::TokenTree::Ident(item)) => ExpectedTokenTree::Ident(item.to_string()),
+            Some(proc_macro::TokenTree::Punct(item)) => ExpectedTokenTree::Punct(item.as_char()),
+            Some(proc_macro::TokenTree::Literal(item)) => ExpectedTokenTree::from_literal(item),
+            None => ExpectedTokenTree::EndOfStream,
+        }
+    }
+
+    pub fn from_literal(literal: &proc_macro::Literal) -> Self {
+        let mut string = literal.to_string();
+        if string.starts_with("\"") && string.ends_with("\"") {
+            string.pop();
+            string.remove(0);
+            Self::String(string)
+        } else {
+            Self::Value(string)
+        }
+    }
+
+    pub fn is_punct(&self, c1: char) -> bool {
+        match self {
+            Self::Punct(c2) => c1 == *c2,
+            _ => false,
+        }
+    }
 }
 
 pub struct Parser {
@@ -66,6 +80,26 @@ impl Parser {
         }
     }
 
+    pub fn is_group(&self) -> bool {
+        match &self.next {
+            Some(proc_macro::TokenTree::Ident(_)) => false,
+            Some(proc_macro::TokenTree::Group(_)) => true,
+            Some(proc_macro::TokenTree::Punct(_)) => false,
+            Some(proc_macro::TokenTree::Literal(_)) => false,
+            None => false,
+        }
+    }
+
+    pub fn is_literal(&self) -> bool {
+        match &self.next {
+            Some(proc_macro::TokenTree::Ident(_)) => false,
+            Some(proc_macro::TokenTree::Group(_)) => false,
+            Some(proc_macro::TokenTree::Punct(_)) => false,
+            Some(proc_macro::TokenTree::Literal(_)) => true,
+            None => false,
+        }
+    }
+
     pub fn span(&self) -> Option<proc_macro::Span> {
         match &self.prev {
             Some(proc_macro::TokenTree::Group(item)) => Some(item.span()),
@@ -93,7 +127,7 @@ impl Parser {
                 Err(())
             }
             None => {
-                panic!("End of stream");
+                panic!("Expected a group, but the stream ended");
             }
         };
         self.finish();
@@ -130,7 +164,7 @@ impl Parser {
                 Err(())
             }
             None => {
-                panic!("End of stream");
+                panic!("Expected an ident, but the stream ended");
             }
         };
         self.finish();
@@ -167,7 +201,7 @@ impl Parser {
                 Err(())
             }
             None => {
-                panic!("End of stream");
+                panic!("Expected a punctuation, but the stream ended");
             }
         };
         self.finish();
@@ -177,9 +211,17 @@ impl Parser {
     pub fn expect_string(&mut self) -> Result<String, ()> {
         self.start();
         let result = match &self.current {
-            Some(proc_macro::TokenTree::Literal(item)) => Ok(utils::strip_quotes(item)?),
+            Some(proc_macro::TokenTree::Literal(item)) => {
+                match ExpectedTokenTree::from_literal(item) {
+                    ExpectedTokenTree::String(string) => Ok(string),
+                    _ => {
+                        item.span().error("Expected a literal string").emit();
+                        Err(())
+                    }
+                }
+            }
             Some(proc_macro::TokenTree::Group(item)) => {
-                item.span().error("Expected an literal, found a group").emit();
+                item.span().error("Expected a literal, found a group").emit();
                 Err(())
             }
             Some(proc_macro::TokenTree::Ident(item)) => {
@@ -187,11 +229,11 @@ impl Parser {
                 Err(())
             }
             Some(proc_macro::TokenTree::Punct(item)) => {
-                item.span().error("Expected an literal, found a punctuation").emit();
+                item.span().error("Expected a literal, found a punctuation").emit();
                 Err(())
             }
             None => {
-                panic!("End of stream");
+                panic!("Expected a literal, but the stream ended");
             }
         };
         self.finish();
@@ -202,7 +244,7 @@ impl Parser {
         self.start();
         let result = match &self.current {
             Some(proc_macro::TokenTree::Group(item)) => {
-                item.span().error("Expected end of the macto, found a group").emit();
+                item.span().error("Expected end of the macro, found a group").emit();
                 Err(())
             }
             Some(proc_macro::TokenTree::Ident(item)) => {
@@ -214,12 +256,10 @@ impl Parser {
                 Err(())
             }
             Some(proc_macro::TokenTree::Literal(item)) => {
-                item.span().error("Expected end of the macto, found a literal").emit();
+                item.span().error("Expected end of the macro, found a literal").emit();
                 Err(())
             }
-            None => {
-                Ok(())
-            }
+            None => Ok(()),
         };
         self.finish();
         result
@@ -227,19 +267,7 @@ impl Parser {
 
     pub fn expect(&mut self) -> ExpectedTokenTree {
         self.start();
-        let result = match &self.current {
-            Some(proc_macro::TokenTree::Group(..)) => ExpectedTokenTree::Group,
-            Some(proc_macro::TokenTree::Ident(item)) => ExpectedTokenTree::Ident(item.to_string()),
-            Some(proc_macro::TokenTree::Punct(item)) => ExpectedTokenTree::Punct(item.as_char()),
-            Some(proc_macro::TokenTree::Literal(item)) => {
-                if let Ok(string) = utils::strip_quotes(item) {
-                    ExpectedTokenTree::String(string)
-                } else {
-                    ExpectedTokenTree::Error
-                }
-            }
-            None => ExpectedTokenTree::EndOfStream,
-        };
+        let result = ExpectedTokenTree::from_token_tree(&self.current);
         self.finish();
         result
     }

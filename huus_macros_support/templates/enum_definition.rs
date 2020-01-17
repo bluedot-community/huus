@@ -1,7 +1,7 @@
 {% let data_name = spec.name.to_data() %}
 {% let value_name = spec.name.to_value() %}
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum {{ data_name }} {
     {% for choice in spec.choices %}
         {{ choice.rust_name }},

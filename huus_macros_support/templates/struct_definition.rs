@@ -93,6 +93,12 @@ pub struct {{ filter_name }} {
                 filter
             }
         }
+
+        impl huus::conversions::IntoDoc for {{ filter_name }} {
+            fn into_doc(self) -> bson::Document {
+                self.build_filter().into_doc()
+            }
+        }
     {% when None %}
         impl huus::filters::BuildInnerFilter for {{ filter_name }} {
             fn build_filter(self, field: String) -> huus::filters::Filter {
@@ -170,6 +176,12 @@ pub struct {{ update_name }} {
                 update
             }
         }
+
+        impl huus::conversions::IntoDoc for {{ update_name }} {
+            fn into_doc(self) -> bson::Document {
+                self.build_update().into_doc()
+            }
+        }
     {% when None %}
         impl huus::updates::BuildInnerUpdate for {{ update_name }} {
             fn build_update(self, field: String) -> huus::updates::Update {
@@ -199,29 +211,20 @@ impl Default for {{ update_name }} {
 
 {% match spec.collection_name %}
     {% when Some with (collection_name) %}
-        impl huus::query::Query for {{ data_name }} {
+        {% let coll_name = generator.make_coll_name(collection_name) %}
+        pub struct {{ coll_name }};
+
+        impl huus::query::Query for {{ coll_name }} {
             type Data = {{ data_name }};
+            type Insert = {{ data_name }};
+            type Filter = {{ filter_name }};
             type Update = {{ update_name }};
             fn get_collection_name() -> &'static str {
                 "{{ collection_name }}"
             }
             fn get_indexed_fields() -> Vec<&'static str> {
                 let mut fields = Vec::new();
-                {%for field in indexed_fields %}
-                    fields.push("{{ field }}");
-                {% endfor %}
-                fields
-            }
-        }
-        impl huus::query::Query for {{ filter_name }} {
-            type Data = {{ data_name }};
-            type Update = {{ update_name }};
-            fn get_collection_name() -> &'static str {
-                "{{ collection_name }}"
-            }
-            fn get_indexed_fields() -> Vec<&'static str> {
-                let mut fields = Vec::new();
-                {%for field in indexed_fields %}
+                {%for field in  spec.indexed_fields %}
                     fields.push("{{ field }}");
                 {% endfor %}
                 fields

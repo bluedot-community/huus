@@ -1,7 +1,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
 // the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-//! Parsing the token stream of `define_huus` macro.
+//! Structures for code generation.
 
 pub enum SpecError {
     RustName(String),
@@ -9,7 +9,7 @@ pub enum SpecError {
     Type(String),
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BuiltInType {
     F64,
     String,
@@ -24,13 +24,13 @@ pub enum BuiltInType {
 impl BuiltInType {
     fn allows_indexing(&self) -> bool {
         match self {
-            BuiltInType::String => true,
+            BuiltInType::String | BuiltInType::ObjectId => true,
             _ => false,
         }
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DefinedType {
     pub name: String,
 }
@@ -39,15 +39,35 @@ impl DefinedType {
     pub fn new(name: String) -> Self {
         Self { name }
     }
+
+    pub fn to_data(&self) -> String {
+        self.name.clone() + "Data"
+    }
+
+    pub fn to_insert(&self) -> String {
+        self.name.clone() + "Insert"
+    }
+
+    pub fn to_filter(&self) -> String {
+        self.name.clone() + "Filter"
+    }
+
+    pub fn to_value(&self) -> String {
+        self.name.clone() + "Value"
+    }
+
+    pub fn to_update(&self) -> String {
+        self.name.clone() + "Update"
+    }
 }
 
-impl PartialEq<str> for DefinedType { // XXX needed?
+impl PartialEq<str> for DefinedType {
     fn eq(&self, name: &str) -> bool {
         self.name == name
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Variant {
     Field(BuiltInType),
     Struct(DefinedType),
@@ -64,7 +84,7 @@ impl Variant {
     }
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Container {
     Array,
     BTreeMap(Variant),
@@ -72,6 +92,17 @@ pub enum Container {
     Plain,
 }
 
+impl Container {
+    pub fn is_plain(&self) -> bool {
+        *self == Self::Plain
+    }
+
+    pub fn is_array(&self) -> bool {
+        *self == Self::Array
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Member {
     pub rust_name: String,
     pub db_name: String,
@@ -104,7 +135,6 @@ impl Member {
                     "Field name can contain only alphanumerics and underscore, but '{}' was used",
                     character
                 );
-                // XXX self.db_name_span.unwrap().error(msg).emit();
                 return Err(SpecError::DbName(msg));
             }
         }
@@ -119,22 +149,19 @@ impl Member {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EnumChoice {
     pub rust_name: String,
     pub db_name: String,
 }
 
 impl EnumChoice {
-    pub fn new(
-        rust_name: String,
-        db_name: String,
-    ) -> Self {
+    pub fn new(rust_name: String, db_name: String) -> Self {
         Self { rust_name, db_name }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UnionChoice {
     pub rust_name: String,
     pub db_name: String,
@@ -142,45 +169,42 @@ pub struct UnionChoice {
 }
 
 impl UnionChoice {
-    pub fn new(
-        rust_name: String,
-        db_name: String,
-        variant: DefinedType,
-    ) -> Self {
+    pub fn new(rust_name: String, db_name: String, variant: DefinedType) -> Self {
         Self { rust_name, db_name, variant }
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Struct {
     pub struct_name: DefinedType,
     pub collection_name: Option<String>,
     pub members: Vec<Member>,
+    pub indexed_fields: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Enum {
     pub name: DefinedType,
     pub choices: Vec<EnumChoice>,
 }
 
 impl Enum {
-    pub fn new(name: DefinedType, choices: Vec<EnumChoice>) -> Self {
-        Self { name, choices }
+    pub fn to_db_names(&self) -> Vec<String> {
+        let mut result = Vec::with_capacity(self.choices.len());
+        for choice in self.choices.iter() {
+            result.push(choice.db_name.clone());
+        }
+        result
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Union {
     pub name: DefinedType,
     pub choices: Vec<UnionChoice>,
 }
 
-impl Union {
-    pub fn new(name: DefinedType, choices: Vec<UnionChoice>) -> Self {
-        Self { name, choices }
-    }
-}
-
+#[derive(Clone, Debug)]
 pub enum Entity {
     Struct(Struct),
     Enum(Enum),
@@ -218,5 +242,20 @@ impl Spec {
         }
         None
     }
-}
 
+    pub fn find_entity_for_collection(&self, name: &str) -> Option<&Entity> {
+        for entity in self.entities.iter() {
+            match entity {
+                Entity::Struct(struct_spec) => {
+                    if let Some(collection_name) = &struct_spec.collection_name {
+                        if collection_name == name {
+                            return Some(entity);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+}

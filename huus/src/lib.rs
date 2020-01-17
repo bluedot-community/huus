@@ -20,9 +20,9 @@ pub mod values;
 pub mod models {
     /// Prelude for defining new types.
     pub mod prelude {
-        pub use crate::conversions::HuusIntoBson;
-        pub use crate::filters::{BuildInnerFilter, Filters};
-        pub use crate::updates::BuildInnerUpdate;
+        pub use crate::conversions::{HuusIntoBson, IntoDoc};
+        pub use crate::filters::{BuildInnerFilter, BuildFilter, Filters};
+        pub use crate::updates::{BuildUpdate, BuildInnerUpdate};
     }
 }
 

@@ -3,35 +3,120 @@
 
 //! This crate provides an easy way to define `huus` data structures using macros.
 
-#![feature(proc_macro_diagnostic)]
-#![feature(proc_macro_def_site)]
-#![recursion_limit = "128"]
-
 extern crate proc_macro;
-extern crate proc_macro2;
 
-mod definition_spec;
-mod definition_input;
-mod definition_output;
-mod parser;
+use huus_macros_support::{Definition, Formulation};
 
 #[proc_macro]
 pub fn define_huus(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    if let Ok(spec) = definition_input::parse_instruction_stream(stream) {
-        definition_output::make_output(spec)
-    } else {
-        // No need to emit error here - it was already emitted
-        proc_macro::TokenStream::new()
+    let definition = Definition::new();
+    if let Ok(interpreter) = definition.parse_instruction_stream(stream) {
+        if let Ok(generator) = interpreter.build().verify() {
+            return generator.generate_definition();
+        }
     }
+    proc_macro::TokenStream::new()
+}
+
+#[proc_macro]
+pub fn define_huus_from(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let definition = Definition::new();
+    if let Ok(interpreter) = definition.parse_file_stream(stream) {
+        if let Ok(generator) = interpreter.build().verify() {
+            return generator.generate_definition();
+        }
+    }
+    proc_macro::TokenStream::new()
+}
+
+#[proc_macro]
+pub fn define(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let definition = Definition::new();
+    if let Ok(interpreter) = definition.parse_instruction_stream(stream) {
+        if let Ok(generator) = interpreter.build().verify() {
+            return generator.generate_formulation();
+        }
+    }
+    proc_macro::TokenStream::new()
 }
 
 #[proc_macro]
 pub fn define_from(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    if let Ok(spec) = definition_input::parse_file_stream(stream) {
-        definition_output::make_output(spec)
-    } else {
-        // No need to emit error here - it was already emitted
-        proc_macro::TokenStream::new()
+    let definition = Definition::new();
+    if let Ok(interpreter) = definition.parse_file_stream(stream) {
+        if let Ok(generator) = interpreter.build().verify() {
+            return generator.generate_formulation();
+        }
     }
+    proc_macro::TokenStream::new()
+}
+
+#[proc_macro]
+pub fn data(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let formulation = Formulation::new(false);
+    if let Ok(interpreter) = formulation.parse(stream) {
+        if let Ok(generator) = interpreter.build().verify_data() {
+            return generator.generate_data();
+        }
+    }
+    "bson::Document::new()".parse().expect("Parse into TokenStream")
+}
+
+#[proc_macro]
+pub fn filter(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let formulation = Formulation::new(false);
+    if let Ok(interpreter) = formulation.parse(stream) {
+        if let Ok(generator) = interpreter.build().verify_filter() {
+            return generator.generate_filter();
+        }
+    }
+    "bson::Document::new()".parse().expect("Parse into TokenStream")
+}
+
+#[proc_macro]
+pub fn update(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let formulation = Formulation::new(false);
+    if let Ok(interpreter) = formulation.parse(stream) {
+        if let Ok(generator) = interpreter.build().verify_update() {
+            return generator.generate_update();
+        }
+    }
+    "bson::Document::new()".parse().expect("Parse into TokenStream")
+}
+
+#[cfg(feature = "testing")]
+#[proc_macro]
+pub fn data_testing(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let formulation = Formulation::new(true);
+    if let Ok(interpreter) = formulation.parse(stream) {
+        if let Err(verdict) = interpreter.build().verify_data() {
+            return verdict.format().parse().expect("Parse into TokenStream");
+        }
+    }
+    "Vec::<huus_macros_support::Problem>::new()".parse().expect("Parse into TokenStream")
+}
+
+#[cfg(feature = "testing")]
+#[proc_macro]
+pub fn filter_testing(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let formulation = Formulation::new(true);
+    if let Ok(interpreter) = formulation.parse(stream) {
+        if let Err(verdict) = interpreter.build().verify_filter() {
+            return verdict.format().parse().expect("Parse into TokenStream");
+        }
+    }
+    "Vec::<huus_macros_support::Problem>::new()".parse().expect("Parse into TokenStream")
+}
+
+#[cfg(feature = "testing")]
+#[proc_macro]
+pub fn update_testing(stream: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let formulation = Formulation::new(true);
+    if let Ok(interpreter) = formulation.parse(stream) {
+        if let Err(verdict) = interpreter.build().verify_update() {
+            return verdict.format().parse().expect("Parse into TokenStream");
+        }
+    }
+    "Vec::<huus_macros_support::Problem>::new()".parse().expect("Parse into TokenStream")
 }
 

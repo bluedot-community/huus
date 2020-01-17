@@ -2,11 +2,13 @@
 
 members = [
         "huus",
+        "huus_macros_support",
         "huus_macros",
     ]
 
 [patch.crates-io]
 
 huus = { path = 'huus' }
+huus_macros_support = { path = 'huus_macros_support' }
 huus_macros = { path = 'huus_macros' }
 

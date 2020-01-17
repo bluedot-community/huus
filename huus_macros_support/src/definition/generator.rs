@@ -1,15 +1,12 @@
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of
 // the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-//! Generation of the code for `define_huus` macro.
-
-use std::collections::HashMap;
+//! Generation of the code for macros defining the data types.
 
 use askama::Template;
 
-use crate::definition_spec::{
-    BuiltInType, Container, DefinedType, Entity, Enum, Member, Spec, Struct, Union,
-    Variant,
+use crate::definition::output::{
+    BuiltInType, Container, Entity, Enum, Member, Spec, Struct, Union, Variant,
 };
 
 // -------------------------------------------------------------------------------------------------
@@ -92,24 +89,6 @@ impl BuiltInType {
             BuiltInType::Bson => "value.clone()",
         };
         output.into()
-    }
-}
-
-impl DefinedType {
-    fn to_data(&self) -> String {
-        self.name.clone() + "Data"
-    }
-
-    fn to_filter(&self) -> String {
-        self.name.clone() + "Filter"
-    }
-
-    fn to_value(&self) -> String {
-        self.name.clone() + "Value"
-    }
-
-    fn to_update(&self) -> String {
-        self.name.clone() + "Update"
     }
 }
 
@@ -301,193 +280,179 @@ impl Member {
     }
 }
 
-impl Enum {
-    pub fn to_db_names(&self) -> Vec<String> {
-        let mut result = Vec::with_capacity(self.choices.len());
-        for choice in self.choices.iter() {
-            result.push(choice.db_name.clone());
-        }
-        result
-    }
-}
-
 // -------------------------------------------------------------------------------------------------
 
-struct IndexedFields<'a> {
-    spec: &'a Spec,
-    fields: HashMap<String, Vec<String>>,
-}
+/// Helper structure for calling rust code from within a template.
+#[derive(Clone)]
+struct GeneratorCallback;
 
-impl<'a> IndexedFields<'a> {
-    fn new(spec: &'a Spec) -> Self {
-        Self { spec: spec, fields: HashMap::new() }
+impl GeneratorCallback {
+    /// Constructs a new `GeneratorCallback`.
+    pub fn new() -> Self {
+        Self
     }
 
-    fn prepare(mut self) -> HashMap<String, Vec<String>> {
-        for entity in self.spec.entities.iter() {
-            self.prepare_entity(entity);
-        }
-        self.fields
-    }
-
-    fn prepare_entity(&mut self, entity: &Entity) {
-        match entity {
-            Entity::Struct(struct_spec) => {
-                if self.fields.get(&struct_spec.struct_name.name).is_none() {
-                    self.prepare_struct(struct_spec);
-                }
-            }
-            Entity::Enum(enum_spec) => {
-                if self.fields.get(&enum_spec.name.name).is_none() {
-                    self.prepare_enum(enum_spec);
-                }
-            }
-            Entity::Union(union_spec) => {
-                if self.fields.get(&union_spec.name.name).is_none() {
-                    self.prepare_union(union_spec);
-                }
+    pub fn make_coll_name(&self, string: &String) -> String {
+        fn capitalize(string: &str) -> String {
+            if string.len() > 0 {
+                string.chars().next().unwrap().to_uppercase().to_string() + &string[1..]
+            } else {
+                String::new()
             }
         }
-    }
 
-    fn prepare_struct(&mut self, struct_spec: &Struct) {
-        let mut indexed_fields = Vec::new();
-        for member in struct_spec.members.iter() {
-            match &member.variant {
-                Variant::Field(_) => {
-                    if member.is_indexed {
-                        indexed_fields.push(member.db_name.clone());
-                    }
-                }
-                Variant::Struct(variant) | Variant::Union(variant) => {
-                    let entity = self
-                        .spec
-                        .find_entity(&variant.name)
-                        .expect(&format!("Failed to find '{}'", variant.name));
-                    self.prepare_entity(entity);
-                    let struct_indexed_fields = self
-                        .fields
-                        .get(&variant.name)
-                        .expect(&format!("Failed to find indexed fields for '{}'", variant.name));
-
-                    let keys = match &member.container {
-                        Container::Array | Container::Plain => Vec::new(),
-                        Container::BTreeMap(variant) | Container::HashMap(variant) => match variant
-                        {
-                            Variant::Field(_) => Vec::new(),
-                            Variant::Struct(key_type)
-                            | Variant::Enum(key_type)
-                            | Variant::Union(key_type) => {
-                                let entity = self.spec.find_entity(&key_type.name);
-                                match entity {
-                                    Some(Entity::Enum(enum_spec)) => enum_spec.to_db_names(),
-                                    _ => Vec::new(),
-                                }
-                            }
-                        },
-                    };
-
-                    let base = member.db_name.clone() + ".";
-                    if keys.len() > 0 {
-                        for key in keys {
-                            for field in struct_indexed_fields.iter() {
-                                indexed_fields.push(base.clone() + &key + "." + field);
-                            }
-                        }
-                    } else {
-                        for field in struct_indexed_fields.iter() {
-                            indexed_fields.push(base.clone() + field);
-                        }
-                    }
-                }
-                Variant::Enum(_) => {}
-            };
-        }
-
-        self.fields.insert(struct_spec.struct_name.name.clone(), indexed_fields);
-    }
-
-    fn prepare_enum(&mut self, enum_spec: &Enum) {
-        self.fields.insert(enum_spec.name.name.clone(), Vec::new());
-    }
-
-    fn prepare_union(&mut self, union_spec: &Union) {
-        self.fields.insert(union_spec.name.name.clone(), Vec::new());
+        string.split('_').map(capitalize).collect::<Vec<String>>().join("")
     }
 }
 
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Template)]
-#[template(path = "struct.rs", escape = "none")]
-struct StructTemplate {
+#[template(path = "struct_definition.rs", escape = "none")]
+struct StructDefinitionTemplate<'a> {
     pub spec: Struct,
-    pub indexed_fields: Vec<String>,
+    pub generator: &'a GeneratorCallback,
 }
 
-impl StructTemplate {
-    pub fn new(spec: Struct, indexed_fields: Vec<String>) -> Self {
-        Self { spec, indexed_fields }
+impl<'a> StructDefinitionTemplate<'a> {
+    pub fn new(spec: Struct, generator: &'a GeneratorCallback) -> Self {
+        Self { spec, generator }
     }
 }
 
-fn make_struct_output(spec: Struct, indexed_fields: Vec<String>) -> String {
-    StructTemplate::new(spec, indexed_fields).render().expect("Render struct template")
+fn make_struct_definition_output(spec: Struct, generator: &GeneratorCallback) -> String {
+    StructDefinitionTemplate::new(spec, generator).render().expect("Render struct template")
 }
 
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Template)]
-#[template(path = "enum.rs", escape = "none")]
-struct EnumTemplate {
+#[template(path = "enum_definition.rs", escape = "none")]
+struct EnumDefinitionTemplate {
     pub spec: Enum,
 }
 
-impl EnumTemplate {
+impl EnumDefinitionTemplate {
     pub fn new(spec: Enum) -> Self {
         Self { spec }
     }
 }
 
-fn make_enum_output(spec: Enum) -> String {
-    EnumTemplate::new(spec).render().expect("Render enum template")
+fn make_enum_definition_output(spec: Enum) -> String {
+    EnumDefinitionTemplate::new(spec).render().expect("Render enum template")
 }
 
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Template)]
-#[template(path = "union.rs", escape = "none")]
-struct UnionTemplate {
+#[template(path = "union_definition.rs", escape = "none")]
+struct UnionDefinitionTemplate {
     pub spec: Union,
 }
 
-impl UnionTemplate {
+impl UnionDefinitionTemplate {
     pub fn new(spec: Union) -> Self {
         Self { spec }
     }
 }
 
-fn make_union_output(spec: Union) -> String {
-    UnionTemplate::new(spec).render().expect("Render union template")
+fn make_union_definition_output(spec: Union) -> String {
+    UnionDefinitionTemplate::new(spec).render().expect("Render union template")
 }
 
 // -------------------------------------------------------------------------------------------------
 
-pub fn make_output(spec: Spec) -> proc_macro::TokenStream {
-    let mut entities = Vec::new();
-    let indexed_fields_map = IndexedFields::new(&spec).prepare();
-    for entity in spec.entities {
-        entities.push(match entity {
-            Entity::Struct(struct_spec) => {
-                let msg =
-                    format!("Failed to find indexed fields for '{}'", struct_spec.struct_name.name);
-                let indexed_fields =
-                    indexed_fields_map.get(&struct_spec.struct_name.name).expect(&msg);
-                make_struct_output(struct_spec, indexed_fields.clone())
-            }
-            Entity::Enum(enum_spec) => make_enum_output(enum_spec),
-            Entity::Union(union_spec) => make_union_output(union_spec),
-        });
+#[derive(Template)]
+#[template(path = "struct_formulation.rs", escape = "none")]
+struct StructFormulationTemplate<'a> {
+    pub spec: Struct,
+    pub generator: &'a GeneratorCallback,
+}
+
+impl<'a> StructFormulationTemplate<'a> {
+    pub fn new(spec: Struct, generator: &'a GeneratorCallback) -> Self {
+        Self { spec, generator }
     }
-    entities.join("\n\n").parse().expect("Parse into TokenStream")
+}
+
+fn make_struct_formulation_output(spec: Struct, generator: &GeneratorCallback) -> String {
+    StructFormulationTemplate::new(spec, generator).render().expect("Render struct template")
+}
+
+// -------------------------------------------------------------------------------------------------
+
+#[derive(Template)]
+#[template(path = "enum_formulation.rs", escape = "none")]
+struct EnumFormulationTemplate {
+    pub spec: Enum,
+}
+
+impl EnumFormulationTemplate {
+    pub fn new(spec: Enum) -> Self {
+        Self { spec }
+    }
+}
+
+fn make_enum_formulation_output(spec: Enum) -> String {
+    EnumFormulationTemplate::new(spec).render().expect("Render enum template")
+}
+
+// -------------------------------------------------------------------------------------------------
+
+#[derive(Template)]
+#[template(path = "union_formulation.rs", escape = "none")]
+struct UnionFormulationTemplate {
+    pub spec: Union,
+}
+
+impl UnionFormulationTemplate {
+    pub fn new(spec: Union) -> Self {
+        Self { spec }
+    }
+}
+
+fn make_union_formulation_output(spec: Union) -> String {
+    UnionFormulationTemplate::new(spec).render().expect("Render union template")
+}
+
+// -------------------------------------------------------------------------------------------------
+
+pub struct Generator {
+    spec: Spec,
+}
+
+impl Generator {
+    pub fn new(spec: Spec) -> Self {
+        Self { spec }
+    }
+
+    pub fn into_spec(self) -> Spec {
+        self.spec
+    }
+
+    pub fn generate_definition(self) -> proc_macro::TokenStream {
+        let generator = GeneratorCallback::new();
+        let mut entities = Vec::new();
+        for entity in self.spec.entities {
+            entities.push(match entity {
+                Entity::Struct(struct_spec) => make_struct_definition_output(struct_spec, &generator),
+                Entity::Enum(enum_spec) => make_enum_definition_output(enum_spec),
+                Entity::Union(union_spec) => make_union_definition_output(union_spec),
+            });
+        }
+        entities.join("\n\n").parse().expect("Parse into TokenStream")
+    }
+
+    pub fn generate_formulation(self) -> proc_macro::TokenStream {
+        let generator = GeneratorCallback::new();
+        let mut entities = Vec::new();
+        for entity in self.spec.entities {
+            entities.push(match entity {
+                Entity::Struct(struct_spec) => make_struct_formulation_output(struct_spec, &generator),
+                Entity::Enum(enum_spec) => make_enum_formulation_output(enum_spec),
+                Entity::Union(union_spec) => make_union_formulation_output(union_spec),
+            });
+        }
+        entities.join("\n\n").parse().expect("Parse into TokenStream")
+    }
 }

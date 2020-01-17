@@ -3,7 +3,9 @@
 
 //! Tests for `huus_macros` crate.
 
-extern crate maplit;
+#![feature(proc_macro_hygiene)]
+
+use bson::{bson, doc};
 
 use huus::models::prelude::*;
 
@@ -23,12 +25,12 @@ huus_macros::define_huus! {
         Choice2 as "choice_2": Doc1,
     }
 
-    pub struct Doc2 in "abc_collection" {
+    pub struct Doc2 in "coll_2" {
         data: Doc1?,
         string: String?,
     }
 
-    pub struct Doc3 in "abc_collection" {
+    pub struct Doc3 in "coll_3" {
         object_id as "_id": ObjectId,
         data: Doc1,
         array: Vec Doc1,
@@ -43,6 +45,9 @@ huus_macros::define_huus! {
         bson: Bson,
     }
 }
+
+// -------------------------------------------------------------------------------------------------
+// Query building
 
 #[test]
 fn test_data_contents() {
@@ -508,6 +513,9 @@ fn test_update_contents_by_modification() {
     assert_eq!(update.build_update().into_doc(), expected);
 }
 
+// -------------------------------------------------------------------------------------------------
+// Creating queries
+
 #[test]
 fn test_create_indexes_query() {
     use huus::query::Query;
@@ -519,8 +527,8 @@ fn test_create_indexes_query() {
         "nested_map.choice_2.str".to_string(),
         "indexed".to_string(),
     ];
-    let command = huus::commands::CreateIndexesCommand::new("abc_collection".to_string(), indexed);
-    assert_eq!(Doc3Data::create_indexes(), command);
+    let command = huus::commands::CreateIndexesCommand::new("coll_3".to_string(), indexed);
+    assert_eq!(Coll3::create_indexes(), command);
 }
 
 #[test]
@@ -528,8 +536,8 @@ fn test_fetch_all_query() {
     use bson::doc;
     use huus::query::Query;
 
-    let command = huus::commands::FindCommand::new("abc_collection".to_string(), doc!(), None);
-    assert_eq!(Doc2Filter::fetch_all(), command);
+    let command = huus::commands::FindCommand::new("coll_2".to_string(), doc!(), None);
+    assert_eq!(Coll2::fetch_all(), command);
 }
 
 #[test]
@@ -546,10 +554,10 @@ fn test_find_one_query() {
             string: "def".into(),
         };
         let command = huus::commands::FindOneCommand::new(
-            "abc_collection".to_string(),
+            "coll_2".to_string(),
             doc! { "data.int": 1, "data.str": "abc", "string": "def" },
         );
-        assert_eq!(filter.find_one(), command);
+        assert_eq!(Coll2::find_one(filter), command);
     }
 
     {
@@ -561,10 +569,10 @@ fn test_find_one_query() {
             string: "def".into(),
         };
         let command = huus::commands::FindOneCommand::new(
-            "abc_collection".to_string(),
+            "coll_2".to_string(),
             doc! { "data": { "int": 1, "str": "abc" }, "string": "def" },
         );
-        assert_eq!(filter.find_one(), command);
+        assert_eq!(Coll2::find_one(filter), command);
     }
 }
 
@@ -582,11 +590,11 @@ fn test_find_many_query() {
             string: "def".into(),
         };
         let command = huus::commands::FindCommand::new(
-            "abc_collection".to_string(),
+            "coll_2".to_string(),
             doc! { "data.int": 1, "data.str": "abc", "string": "def" },
             None,
         );
-        assert_eq!(filter.find(), command);
+        assert_eq!(Coll2::find(filter), command);
     }
 
     {
@@ -598,11 +606,11 @@ fn test_find_many_query() {
             string: "def".into(),
         };
         let command = huus::commands::FindCommand::new(
-            "abc_collection".to_string(),
+            "coll_2".to_string(),
             doc! { "data": { "int": 1, "str": "abc" }, "string": "def" },
             None,
         );
-        assert_eq!(filter.find(), command);
+        assert_eq!(Coll2::find(filter), command);
     }
 }
 
@@ -612,11 +620,11 @@ fn test_text_search_query() {
     use huus::query::Query;
 
     let command = huus::commands::FindCommand::new(
-        "abc_collection".to_string(),
+        "coll_2".to_string(),
         doc! { "$text": { "$search": "my_pattern" } },
         None,
     );
-    assert_eq!(Doc2Filter::text_search("my_pattern".to_string()), command);
+    assert_eq!(Coll2::text_search("my_pattern".to_string()), command);
 }
 
 #[test]
@@ -629,7 +637,7 @@ fn test_insert_query() {
         string: Some("def".to_string()),
     };
 
-    let command = data.insert();
+    let command = Coll2::insert(data);
     let actual = command.get_document();
     assert_eq!(*actual.get_document("data").unwrap(), doc! { "int": 1, "str": "abc" });
     assert_eq!(*actual.get_str("string").unwrap(), "def".to_string());
@@ -657,11 +665,12 @@ fn test_update_query() {
     };
 
     let command = huus::commands::UpdateCommand::new(
-        "abc_collection".to_string(),
+        "coll_2".to_string(),
         doc! { "data.int": 1, "data.str": "abc", "string": "def" },
         doc! { "data.int": 1, "data.str": "abc", "string": "def" },
         huus::commands::UpdateOptions::UpdateOne,
     );
 
-    assert_eq!(filter.update(update), command);
+    assert_eq!(Coll2::update(filter, update), command);
 }
+

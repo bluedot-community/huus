@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use bson::{bson, doc};
 
-use crate::conversions::{HuusIntoBson, HuusKey};
+use crate::conversions::{HuusIntoBson, HuusKey, IntoDoc};
 use crate::types;
 
 // -------------------------------------------------------------------------------------------------
@@ -106,13 +106,13 @@ where
     bson::Bson::Array(result)
 }
 
-fn filters_into_array<F>(elements: Vec<F>) -> bson::Bson
+fn filters_into_array<D>(elements: Vec<D>) -> bson::Bson
 where
-    F: BuildFilter,
+    D: IntoDoc,
 {
     let mut result: Vec<bson::Bson> = Vec::with_capacity(elements.len());
     for element in elements {
-        result.push(element.build_filter().into_bson());
+        result.push(bson::Bson::Document(element.into_doc()));
     }
     bson::Bson::Array(result)
 }
@@ -120,35 +120,37 @@ where
 // -------------------------------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
-pub enum Filters<F>
+pub enum Filters<D>
 where
-    F: BuildFilter,
+    D: IntoDoc,
 {
-    And(Vec<F>),
-    Not(F),
-    Nor(Vec<F>),
-    Or(Vec<F>),
+    And(Vec<D>),
+    Not(D),
+    Nor(Vec<D>),
+    Or(Vec<D>),
 }
 
-impl<F> BuildFilter for Filters<F>
+impl<D> IntoDoc for Filters<D>
 where
-    F: BuildFilter,
+    D: IntoDoc,
 {
-    fn build_filter(self) -> Filter {
+    fn into_doc(self) -> bson::Document {
+        let mut doc = bson::Document::new();
         match self {
-            Filters::And(filters) => {
-                Filter::with_field("$and".to_string(), filters_into_array(filters))
+            Self::And(filters) => {
+                doc.insert("$and".to_string(), filters_into_array(filters));
             }
-            Filters::Not(filter) => {
-                Filter::with_field("$not".to_string(), filter.build_filter().into_bson())
+            Self::Not(filter) => {
+                doc.insert("$not".to_string(), bson::Bson::Document(filter.into_doc()));
             }
-            Filters::Nor(filters) => {
-                Filter::with_field("$nor".to_string(), filters_into_array(filters))
+            Self::Nor(filters) => {
+                doc.insert("$nor".to_string(), filters_into_array(filters));
             }
-            Filters::Or(filters) => {
-                Filter::with_field("$or".to_string(), filters_into_array(filters))
+            Self::Or(filters) => {
+                doc.insert("$or".to_string(), filters_into_array(filters));
             }
         }
+        doc
     }
 }
 
@@ -1064,3 +1066,4 @@ impl Filter {
         }
     }
 }
+
