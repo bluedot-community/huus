@@ -14,37 +14,18 @@ const SPAN: &str = "Span should be present";
 
 // -------------------------------------------------------------------------------------------------
 
+/// Parses the macro input. Returns parsed structure ready for verification.
 pub struct Interpreter {
     entities: Vec<EntityTemplate>,
 }
 
 impl Interpreter {
+    /// Constructs a new `Interpreter`.
     pub fn new() -> Self {
         Self { entities: Vec::new() }
     }
 
-    pub fn parse_file_stream(self, stream: proc_macro::TokenStream) -> Result<Self, ()> {
-        let mut parser = Parser::new(stream);
-        let name = parser.expect_string()?;
-        parser.expect_eof()?;
-
-        let mut path = PathBuf::new();
-        path.push(std::env::var("CARGO_MANIFEST_DIR").expect("Read CARGO_MANIFEST_DIR variable"));
-        path.push("huus");
-        path.push(name);
-        path.set_extension("huus.rs");
-
-        self.parse_file(path)
-    }
-
-    pub fn parse_file(self, path: PathBuf) -> Result<Self, ()> {
-        let contents =
-            std::fs::read_to_string(path.clone()).expect(&format!("Read file: {:?}", path));
-
-        let stream = proc_macro::TokenStream::from_str(&contents).expect("Create token stream");
-        self.parse_instruction_stream(stream)
-    }
-
+    /// Parses the schema definition.
     pub fn parse_instruction_stream(mut self, stream: proc_macro::TokenStream) -> Result<Self, ()> {
         let start_len = self.entities.len();
 
@@ -83,6 +64,31 @@ impl Interpreter {
         }
     }
 
+    /// Reads in and parses the schema file.
+    pub fn parse_file(self, path: PathBuf) -> Result<Self, ()> {
+        let contents =
+            std::fs::read_to_string(path.clone()).expect(&format!("Read file: {:?}", path));
+
+        let stream = proc_macro::TokenStream::from_str(&contents).expect("Create token stream");
+        self.parse_instruction_stream(stream)
+    }
+
+    /// Parses out a file name, reads it in and parses as a schema definition.
+    pub fn parse_file_stream(self, stream: proc_macro::TokenStream) -> Result<Self, ()> {
+        let mut parser = Parser::new(stream);
+        let name = parser.expect_string()?;
+        parser.expect_eof()?;
+
+        let mut path = PathBuf::new();
+        path.push(std::env::var("CARGO_MANIFEST_DIR").expect("Read CARGO_MANIFEST_DIR variable"));
+        path.push("huus");
+        path.push(name);
+        path.set_extension("huus.rs");
+
+        self.parse_file(path)
+    }
+
+    /// Returns the validator for the parsed data.
     pub fn build(self) -> Validator {
         Validator::new(self.entities)
     }
@@ -92,6 +98,7 @@ impl Interpreter {
 // Helper parse methods
 
 impl Interpreter {
+    /// Parses a single structure.
     fn parse_struct(&self, parser: &mut Parser) -> Result<EntityTemplate, ()> {
         let name_ident = parser.expect_ident(None)?;
         let (collection_name, collection_name_span) = if parser.is_ident() {
@@ -113,6 +120,7 @@ impl Interpreter {
         }))
     }
 
+    /// Parses a list of members.
     fn parse_members(&self, group: proc_macro::Group) -> Result<Vec<MemberTemplate>, ()> {
         const ARRAY: &str = "Vec";
         const BTREEMAP: &str = "BTreeMap";
@@ -182,6 +190,8 @@ impl Interpreter {
         return Ok(result);
     }
 
+    /// Parses an enum or an union. The difference between enum and union is that a union variants
+    /// reference structures, while enum variants are to be interpreted as constant strings.
     fn parse_enum_or_union(&self, parser: &mut Parser) -> Result<EntityTemplate, ()> {
         let name_ident = parser.expect_ident(None)?;
         let name = name_ident.to_string();
@@ -207,6 +217,7 @@ impl Interpreter {
         }
     }
 
+    /// Parse enum's or union's variants.
     fn parse_choices(&self, group: proc_macro::Group) -> Result<Choices, ()> {
         let mut result = Choices::new();
         let mut parser = Parser::new(group.stream());

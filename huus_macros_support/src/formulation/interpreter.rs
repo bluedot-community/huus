@@ -4,7 +4,7 @@
 //! Parsing the token stream for macros generating BSON queries.
 
 use crate::{
-    definition::data::SPEC,
+    definition::data::SCHEMA,
     formulation::{input::*, validator::Validator},
     parser::{ExpectedTokenTree, Parser},
 };
@@ -13,6 +13,7 @@ const SPAN: &str = "Span should be present";
 
 // -------------------------------------------------------------------------------------------------
 
+/// Parses the macro input. Returns parsed structure ready for verification.
 pub struct Interpreter {
     collection: SpannedCollection,
     object: ObjectTemplate,
@@ -20,6 +21,7 @@ pub struct Interpreter {
 }
 
 impl Interpreter {
+    /// Constructs a new `Interpreter`.
     pub fn new(testing: bool) -> Self {
         Self {
             collection: SpannedCollection::new(),
@@ -28,6 +30,7 @@ impl Interpreter {
         }
     }
 
+    /// Parses the macro input containing the query.
     pub fn parse(mut self, stream: proc_macro::TokenStream) -> Result<Self, ()> {
         let mut parser = Parser::new(stream);
         self.collection = self.parse_prelude(parser.expect_group()?)?;
@@ -41,8 +44,9 @@ impl Interpreter {
         Ok(self)
     }
 
+    /// Returns the validator for the parsed data.
     pub fn build(self) -> Validator<'static> {
-        Validator::new(self.collection, self.object, &*SPEC, self.testing)
+        Validator::new(self.collection, self.object, &*SCHEMA, self.testing)
     }
 }
 
@@ -50,6 +54,7 @@ impl Interpreter {
 // Helper parse methods
 
 impl Interpreter {
+    /// Parses the name of collection the data will refer to.
     fn parse_prelude(&self, group: proc_macro::Group) -> Result<SpannedCollection, ()> {
         let mut parser = Parser::new(group.stream());
         let collection =
@@ -58,11 +63,17 @@ impl Interpreter {
         Ok(collection)
     }
 
+    /// Parse the code from code mode.
     fn parse_code(&self, group: proc_macro::Group) -> Result<String, ()> {
         Ok(group.stream().to_string())
     }
 
-    fn parse_object(&self, mut parser: Parser, span: proc_macro::Span) -> Result<ObjectTemplate, ()> {
+    /// Parses an object.
+    fn parse_object(
+        &self,
+        mut parser: Parser,
+        span: proc_macro::Span,
+    ) -> Result<ObjectTemplate, ()> {
         let mut object = ObjectTemplate::new(span);
 
         while !parser.is_end() {
@@ -83,12 +94,11 @@ impl Interpreter {
         Ok(object)
     }
 
+    /// Parses an attribute.
     fn parse_attribute(&self, parser: &mut Parser) -> Result<SpannedAttribute, ()> {
         if parser.is_literal() {
-            let attr = SpannedAttribute::from_str(
-                &parser.expect_string()?,
-                parser.span().expect(SPAN),
-            );
+            let attr =
+                SpannedAttribute::from_str(&parser.expect_string()?, parser.span().expect(SPAN));
             let _ = parser.expect_punctuation(Some(':'))?;
             Ok(attr)
         } else {
@@ -98,14 +108,13 @@ impl Interpreter {
                     ExpectedTokenTree::Ident(ident) => {
                         SpannedPart::from_str(&ident.to_string(), parser.span().expect(SPAN))
                     }
-                    ExpectedTokenTree::Group(group) => {
-                        SpannedPart::from_code(
-                            group.stream().to_string(),
-                            parser.span().expect(SPAN),
-                        )
-                    }
+                    ExpectedTokenTree::Group(group) => SpannedPart::from_code(
+                        group.stream().to_string(),
+                        parser.span().expect(SPAN),
+                    ),
                     _ => {
-                        parser.span()
+                        parser
+                            .span()
                             .expect(SPAN)
                             .error("Expected an identifier or parenthesis '()'")
                             .emit();
@@ -118,7 +127,8 @@ impl Interpreter {
                     ':' => break,
                     '.' => {} // continue
                     _ => {
-                        parser.span()
+                        parser
+                            .span()
                             .expect(SPAN)
                             .error("Expected a colon (':') or a dot ('.')")
                             .emit();
@@ -130,6 +140,7 @@ impl Interpreter {
         }
     }
 
+    /// Parse a value.
     fn parse_value(&self, parser: &mut Parser) -> Result<ValueTemplate, ()> {
         match parser.expect() {
             ExpectedTokenTree::String(string) => Ok(ValueTemplate::Quoted(string)),

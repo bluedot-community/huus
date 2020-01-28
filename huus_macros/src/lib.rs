@@ -119,4 +119,3 @@ pub fn update_testing(stream: proc_macro::TokenStream) -> proc_macro::TokenStrea
     }
     "Vec::<huus_macros_support::Problem>::new()".parse().expect("Parse into TokenStream")
 }
-

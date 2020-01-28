@@ -3,8 +3,7 @@
 
 //! This crate provides an easy way to define `huus` data structures using macros.
 
-// XXX #![warn(missing_docs)]
-
+#![warn(missing_docs)]
 #![feature(proc_macro_def_site)]
 #![feature(proc_macro_diagnostic)]
 #![feature(proc_macro_span)]
@@ -17,5 +16,4 @@ pub mod definition;
 pub mod formulation;
 
 pub use definition::interpreter::Interpreter as Definition;
-pub use formulation::{validator::Problem, interpreter::Interpreter as Formulation};
-
+pub use formulation::{interpreter::Interpreter as Formulation, validator::Problem};

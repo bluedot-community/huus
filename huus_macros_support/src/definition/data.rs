@@ -3,10 +3,10 @@
 
 //! Definitions of database data types.
 
-use crate::definition::{interpreter::Interpreter, output::Spec};
+use crate::definition::{interpreter::Interpreter, output::Schema};
 
 lazy_static::lazy_static! {
-    pub static ref SPEC: Spec = {
+    pub static ref SCHEMA: Schema = {
         let mut interpreter = Interpreter::new();
 
         let mut dir = std::path::PathBuf::new();
@@ -27,6 +27,6 @@ lazy_static::lazy_static! {
         interpreter.build()
             .verify()
             .expect("Stopping `huus` validation due to previous error")
-            .into_spec()
+            .into_schema()
     };
 }

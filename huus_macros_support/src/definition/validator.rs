@@ -11,17 +11,17 @@ use crate::definition::{generator::Generator, input::*, output::*};
 
 /// Helper structure gathering indexed field including this from children documents.
 struct IndexedFields<'a> {
-    spec: &'a Spec,
+    schema: &'a Schema,
     fields: HashMap<String, Vec<String>>,
 }
 
 impl<'a> IndexedFields<'a> {
-    fn new(spec: &'a Spec) -> Self {
-        Self { spec: spec, fields: HashMap::new() }
+    fn new(schema: &'a Schema) -> Self {
+        Self { schema: schema, fields: HashMap::new() }
     }
 
     fn prepare(mut self) -> HashMap<String, Vec<String>> {
-        for entity in self.spec.entities.iter() {
+        for entity in self.schema.entities.iter() {
             self.prepare_entity(entity);
         }
         self.fields
@@ -58,7 +58,7 @@ impl<'a> IndexedFields<'a> {
                 }
                 Variant::Struct(variant) | Variant::Union(variant) => {
                     let entity = self
-                        .spec
+                        .schema
                         .find_entity(&variant.name)
                         .expect(&format!("Failed to find '{}'", variant.name));
                     self.prepare_entity(entity);
@@ -75,7 +75,7 @@ impl<'a> IndexedFields<'a> {
                             Variant::Struct(key_type)
                             | Variant::Enum(key_type)
                             | Variant::Union(key_type) => {
-                                let entity = self.spec.find_entity(&key_type.name);
+                                let entity = self.schema.find_entity(&key_type.name);
                                 match entity {
                                     Some(Entity::Enum(enum_spec)) => enum_spec.to_db_names(),
                                     _ => Vec::new(),
@@ -115,16 +115,19 @@ impl<'a> IndexedFields<'a> {
 
 // -------------------------------------------------------------------------------------------------
 
+/// Validates the schema definition. Returns a code generator.
 pub struct Validator {
     entities: Vec<EntityTemplate>,
-    spec: Spec,
+    schema: Schema,
 }
 
 impl Validator {
+    /// Constructs a new `Validator`.
     pub fn new(entities: Vec<EntityTemplate>) -> Self {
-        Self { entities, spec: Spec::new() }
+        Self { entities, schema: Schema::new() }
     }
 
+    /// Searches for an entity using the passed name.
     fn find_entity(&self, name: &str) -> Option<&EntityTemplate> {
         for entity in self.entities.iter() {
             match entity {
@@ -148,11 +151,12 @@ impl Validator {
         None
     }
 
+    /// Performs a full validation of the definition schema. Returns a code generator if succeeded.
     pub fn verify(mut self) -> Result<Generator, ()> {
         self.validate()?;
         self.build()?;
         self.prepare();
-        Ok(Generator::new(self.spec))
+        Ok(Generator::new(self.schema))
     }
 }
 
@@ -160,6 +164,10 @@ impl Validator {
 // Helper validation methods
 
 impl Validator {
+    /// Validates a single member.
+    ///
+    /// Checks that:
+    /// - only strings or enums are used as map keys
     fn validate_member(&self, member: &MemberTemplate) -> Result<(), ()> {
         match &member.container {
             ContainerTemplate::BTreeMap(string) | ContainerTemplate::HashMap(string) => {
@@ -192,6 +200,12 @@ impl Validator {
         }
     }
 
+    /// Validates the definition schema.
+    ///
+    /// Checks that:
+    /// - all entity names are unique
+    /// - all collection names are unique
+    /// - all structure members are valid
     fn validate(&self) -> Result<(), ()> {
         let mut is_ok = true;
         let mut entity_names = HashSet::new();
@@ -255,6 +269,7 @@ impl Validator {
 // Helper build methods
 
 impl Validator {
+    /// Prepares a `Variant` used in code generation basing on parsed types.
     fn make_variant(&self, string: String, span: proc_macro::Span) -> Result<Variant, ()> {
         if let Ok(field) = BuiltInType::from_name(&string) {
             Ok(Variant::Field(field))
@@ -271,6 +286,7 @@ impl Validator {
         }
     }
 
+    /// Prepares a `Container` used in code generation basing on parsed `ContainerTemplate`.
     fn convert_container(
         &self,
         template: ContainerTemplate,
@@ -288,6 +304,7 @@ impl Validator {
         })
     }
 
+    /// Prepares a `Struct` used in code generation basing on parsed `StructTemplate`.
     fn convert_struct(&self, struct_template: StructTemplate) -> Result<Struct, ()> {
         let mut members = Vec::with_capacity(struct_template.members.len());
         for template in struct_template.members {
@@ -305,9 +322,9 @@ impl Validator {
 
             match member {
                 Ok(member) => members.push(member),
-                Err(SpecError::RustName(msg)) => template.rust_name_span.error(msg).emit(),
-                Err(SpecError::DbName(msg)) => template.db_name_span.error(msg).emit(),
-                Err(SpecError::Type(msg)) => template.variant_span.error(msg).emit(),
+                Err(ParseError::RustName(msg)) => template.rust_name_span.error(msg).emit(),
+                Err(ParseError::DbName(msg)) => template.db_name_span.error(msg).emit(),
+                Err(ParseError::Type(msg)) => template.variant_span.error(msg).emit(),
             }
         }
 
@@ -319,27 +336,12 @@ impl Validator {
         })
     }
 
-    fn build(&mut self) -> Result<(), ()> {
-        for entity in self.entities.iter() {
-            self.spec.entities.push(match entity {
-                EntityTemplate::Struct(struct_template) => {
-                    Entity::Struct(self.convert_struct(struct_template.clone())?)
-                }
-                EntityTemplate::Enum(enum_spec) => Entity::Enum(enum_spec.clone().into()),
-                EntityTemplate::Union(union_spec) => Entity::Union(union_spec.clone().into()),
-            });
-        }
-        Ok(())
-    }
-}
-
-// -------------------------------------------------------------------------------------------------
-// Helper build methods
-
-impl Validator {
+    /// Prepares additional info needed for code generation.
+    ///
+    /// Currently only prepares list of indexed fields.
     fn prepare(&mut self) {
-        let mut indexed_fields = IndexedFields::new(&self.spec).prepare();
-        for entity in self.spec.entities.iter_mut() {
+        let mut indexed_fields = IndexedFields::new(&self.schema).prepare();
+        for entity in self.schema.entities.iter_mut() {
             match entity {
                 Entity::Struct(struct_spec) => {
                     struct_spec.indexed_fields = indexed_fields
@@ -351,5 +353,19 @@ impl Validator {
                 }
             }
         }
+    }
+
+    /// Returns the code generator for the validated data.
+    fn build(&mut self) -> Result<(), ()> {
+        for entity in self.entities.iter() {
+            self.schema.entities.push(match entity {
+                EntityTemplate::Struct(struct_template) => {
+                    Entity::Struct(self.convert_struct(struct_template.clone())?)
+                }
+                EntityTemplate::Enum(enum_spec) => Entity::Enum(enum_spec.clone().into()),
+                EntityTemplate::Union(union_spec) => Entity::Union(union_spec.clone().into()),
+            });
+        }
+        Ok(())
     }
 }

@@ -47,18 +47,11 @@ pub trait Query: Sized {
     }
 
     fn find_one(filter: Self::Filter) -> commands::FindOneCommand<Self::Data> {
-        commands::FindOneCommand::new(
-            Self::get_collection_name().to_string(),
-            filter.into_doc(),
-        )
+        commands::FindOneCommand::new(Self::get_collection_name().to_string(), filter.into_doc())
     }
 
     fn find(filter: Self::Filter) -> commands::FindCommand<Self::Data> {
-        commands::FindCommand::new(
-            Self::get_collection_name().to_string(),
-            filter.into_doc(),
-            None,
-        )
+        commands::FindCommand::new(Self::get_collection_name().to_string(), filter.into_doc(), None)
     }
 
     // TODO: Provide a better way for defining logical oprations
@@ -120,4 +113,3 @@ pub trait Query: Sized {
         )
     }
 }
-

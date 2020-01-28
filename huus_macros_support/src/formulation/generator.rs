@@ -6,27 +6,7 @@
 use askama::Template;
 
 use crate::definition::output::DefinedType;
-use crate::formulation::output::{Cast, Container, Object, Value, Part};
-
-// -------------------------------------------------------------------------------------------------
-
-impl Cast {
-    fn to_data(&self) -> String {
-        let variant = self.variant.to_data();
-        match &self.container {
-            Container::Array => format!("Vec<{}>", variant),
-            Container::HashMap(key_variant) => {
-                let key = key_variant.to_data();
-                format!("std::collections::HashMap<{}, {}>", key, variant)
-            }
-            Container::BTreeMap(key_variant) => {
-                let key = key_variant.to_data();
-                format!("std::collections::BTreeMap<{}, {}>", key, variant)
-            }
-            Container::Plain => variant,
-        }
-    }
-}
+use crate::formulation::output::{Object, Part, Value};
 
 // -------------------------------------------------------------------------------------------------
 
@@ -63,6 +43,7 @@ impl<'a> ObjectTemplate<'a> {
 
 // -------------------------------------------------------------------------------------------------
 
+/// Template used for data query generation.
 #[derive(Template)]
 #[template(path = "data.rs", escape = "none")]
 struct DataTemplate<'a> {
@@ -72,13 +53,19 @@ struct DataTemplate<'a> {
 }
 
 impl<'a> DataTemplate<'a> {
-    pub fn new(name: &'a DefinedType, object: &'a Object, generator: &'a GeneratorCallback) -> Self {
+    /// Constructs a new `DataTemplate`.
+    pub fn new(
+        name: &'a DefinedType,
+        object: &'a Object,
+        generator: &'a GeneratorCallback,
+    ) -> Self {
         Self { name, object, generator }
     }
 }
 
 // -------------------------------------------------------------------------------------------------
 
+/// Template used for filter query generation.
 #[derive(Template)]
 #[template(path = "filter.rs", escape = "none")]
 struct FilterTemplate<'a> {
@@ -88,13 +75,19 @@ struct FilterTemplate<'a> {
 }
 
 impl<'a> FilterTemplate<'a> {
-    pub fn new(name: &'a DefinedType, object: &'a Object, generator: &'a GeneratorCallback) -> Self {
+    /// Constructs a new `FilterTemplate`.
+    pub fn new(
+        name: &'a DefinedType,
+        object: &'a Object,
+        generator: &'a GeneratorCallback,
+    ) -> Self {
         Self { name, object, generator }
     }
 }
 
 // -------------------------------------------------------------------------------------------------
 
+/// Template used for update query generation.
 #[derive(Template)]
 #[template(path = "update.rs", escape = "none")]
 struct UpdateTemplate<'a> {
@@ -104,23 +97,31 @@ struct UpdateTemplate<'a> {
 }
 
 impl<'a> UpdateTemplate<'a> {
-    pub fn new(name: &'a DefinedType, object: &'a Object, generator: &'a GeneratorCallback) -> Self {
+    /// Constructs a new `UpdateTemplate`.
+    pub fn new(
+        name: &'a DefinedType,
+        object: &'a Object,
+        generator: &'a GeneratorCallback,
+    ) -> Self {
         Self { name, object, generator }
     }
 }
 
 // -------------------------------------------------------------------------------------------------
 
+/// Query generator.
 pub struct Generator {
     name: DefinedType,
     object: Object,
 }
 
 impl Generator {
+    /// Constructs a new `Generator`.
     pub fn new(name: DefinedType, object: Object) -> Self {
         Self { name, object }
     }
 
+    /// Generates a data query.
     pub fn generate_data(self) -> proc_macro::TokenStream {
         let callback = GeneratorCallback::new();
         DataTemplate::new(&self.name, &self.object, &callback)
@@ -130,6 +131,7 @@ impl Generator {
             .expect("Parse into TokenStream")
     }
 
+    /// Generates a filter query.
     pub fn generate_filter(self) -> proc_macro::TokenStream {
         let callback = GeneratorCallback::new();
         FilterTemplate::new(&self.name, &self.object, &callback)
@@ -139,6 +141,7 @@ impl Generator {
             .expect("Parse into TokenStream")
     }
 
+    /// Generates an update query.
     pub fn generate_update(self) -> proc_macro::TokenStream {
         let callback = GeneratorCallback::new();
         UpdateTemplate::new(&self.name, &self.object, &callback)

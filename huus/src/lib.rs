@@ -21,8 +21,8 @@ pub mod models {
     /// Prelude for defining new types.
     pub mod prelude {
         pub use crate::conversions::{HuusIntoBson, IntoDoc};
-        pub use crate::filters::{BuildInnerFilter, BuildFilter, Filters};
-        pub use crate::updates::{BuildUpdate, BuildInnerUpdate};
+        pub use crate::filters::{BuildFilter, BuildInnerFilter, Filters};
+        pub use crate::updates::{BuildInnerUpdate, BuildUpdate};
     }
 }
 

@@ -673,4 +673,3 @@ fn test_update_query() {
 
     assert_eq!(Coll2::update(filter, update), command);
 }
-
